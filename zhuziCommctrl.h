@@ -38,6 +38,10 @@ namespace zhuzi {
         AlignHorizontal getTextAlign() const { return m_hAlign; }
         AlignVertical getVerticalAlign() const { return m_vAlign; }
         virtual bool onCreate(DWORD style) override;
+
+		void onPaint(zhuziPaint& paint) override;
+
+		bool getTransparent() const override { return true; } // ±êÇ©Ä¬ÈÏÍ¸Ã÷±³¾°
     private:
         AlignHorizontal m_hAlign;
         AlignVertical   m_vAlign;

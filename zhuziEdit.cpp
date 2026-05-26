@@ -7,7 +7,7 @@ namespace zhuzi {
 
     // ==================== zhuziEdit ====================
     zhuziEdit::zhuziEdit(zhuziControl* parent)
-        : zhuziControl(parent), m_onEnter(nullptr), m_isPassword(false), m_isOnlyNumber(false), m_isReadOnly(false) {
+        : zhuziControl(parent), m_onEnter(nullptr), m_isPassword(false), m_isOnlyNumber(false) {
         if (!font_tahoma) font_tahoma = std::make_shared<zhuziFont>(L"Tahoma", 16);
     }
     zhuziEdit::~zhuziEdit() { destroy(); }
@@ -16,7 +16,6 @@ namespace zhuzi {
         DWORD finalStyle = style | WS_BORDER | ES_LEFT | ES_AUTOHSCROLL;
         if (m_isPassword) finalStyle |= ES_PASSWORD;
         if (m_isOnlyNumber) finalStyle |= ES_NUMBER;
-        if (m_isReadOnly) finalStyle |= ES_READONLY;
         if (!createControl(L"EDIT", 0, 0, 0, 0, finalStyle)) return false;
         SetWindowSubclass(m_hwnd, EditProc, 0, (DWORD_PTR)this);
         if (m_isPassword) setFont(*font_tahoma);
@@ -30,14 +29,6 @@ namespace zhuzi {
         zhuziString s(len, L'\0');
         GetWindowTextW(m_hwnd, &s[0], len + 1);
         return s;
-    }
-
-    void zhuziEdit::setReadOnly(bool readOnly) {
-        m_isReadOnly = readOnly;
-        if (m_hwnd) SendMessageW(m_hwnd, EM_SETREADONLY, readOnly ? TRUE : FALSE, 0);
-    }
-    bool zhuziEdit::isReadOnly() const {
-        return m_hwnd ? (GetWindowLongPtrW(m_hwnd, GWL_STYLE) & ES_READONLY) != 0 : false;
     }
 
     void zhuziEdit::setPassword(bool enable) {

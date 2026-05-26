@@ -15,9 +15,6 @@ namespace zhuzi {
         void setText(const zhuziString& text);
         zhuziString getText() const;
 
-        void setReadOnly(bool readOnly);
-        bool isReadOnly() const;
-
         void setPassword(bool enable);
         void setOnlyNumber(bool enable);
 
@@ -27,7 +24,6 @@ namespace zhuzi {
         std::function<void()> m_onEnter;
         bool m_isPassword;
         bool m_isOnlyNumber;
-        bool m_isReadOnly;
 
         static LRESULT CALLBACK EditProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
         void onEnter();

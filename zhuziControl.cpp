@@ -205,7 +205,7 @@ namespace zhuzi {
             return DefSubclassProc(hwnd, msg, wParam, lParam);
         }
 
-        // 以下仅对自定义控件生效（如 zhuziCustomSample）
+        // 以下仅对自定义控件生效
         switch (msg) {
         case WM_ERASEBKGND:
             return 1;  // 阻止擦除背景，减少闪烁
@@ -219,16 +219,44 @@ namespace zhuzi {
                 int width = rcClient.right - rcClient.left;
                 int height = rcClient.bottom - rcClient.top;
                 if (width > 0 && height > 0) {
-                    // 双缓冲
-                    HDC memDC = CreateCompatibleDC(hdc);
-                    HBITMAP memBitmap = CreateCompatibleBitmap(hdc, width, height);
-                    HBITMAP oldBitmap = (HBITMAP)SelectObject(memDC, memBitmap);
-                    zhuziPaint paint(memDC, rcClient);
-                    pThis->onPaint(paint);
-                    BitBlt(hdc, 0, 0, width, height, memDC, 0, 0, SRCCOPY);
-                    SelectObject(memDC, oldBitmap);
-                    DeleteObject(memBitmap);
-                    DeleteDC(memDC);
+                    // 根据是否需要透明背景选择绘制方式
+                    if (pThis->getTransparent()) {
+                        // ===== 透明背景方式：使用 32 位位图 + AlphaBlend =====
+                        HDC memDC = CreateCompatibleDC(hdc);
+                        BITMAPINFO bmi = { 0 };
+                        bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+                        bmi.bmiHeader.biWidth = width;
+                        bmi.bmiHeader.biHeight = -height;  // 自上而下
+                        bmi.bmiHeader.biPlanes = 1;
+                        bmi.bmiHeader.biBitCount = 32;
+                        bmi.bmiHeader.biCompression = BI_RGB;
+                        VOID* pvBits = nullptr;
+                        HBITMAP memBitmap = CreateDIBSection(memDC, &bmi, DIB_RGB_COLORS, &pvBits, nullptr, 0);
+                        if (memBitmap && pvBits) {
+                            HBITMAP oldBitmap = (HBITMAP)SelectObject(memDC, memBitmap);
+                            // 初始化为全透明
+                            memset(pvBits, 0, width * height * 4);
+                            zhuziPaint paint(memDC, rcClient);
+                            pThis->onPaint(paint);
+                            BLENDFUNCTION blend = { AC_SRC_OVER, 0, 255, AC_SRC_ALPHA };
+                            AlphaBlend(hdc, 0, 0, width, height, memDC, 0, 0, width, height, blend);
+                            SelectObject(memDC, oldBitmap);
+                            DeleteObject(memBitmap);
+                        }
+                        DeleteDC(memDC);
+                    }
+                    else {
+                        // ===== 普通双缓冲方式：兼容原行为 =====
+                        HDC memDC = CreateCompatibleDC(hdc);
+                        HBITMAP memBitmap = CreateCompatibleBitmap(hdc, width, height);
+                        HBITMAP oldBitmap = (HBITMAP)SelectObject(memDC, memBitmap);
+                        zhuziPaint paint(memDC, rcClient);
+                        pThis->onPaint(paint);
+                        BitBlt(hdc, 0, 0, width, height, memDC, 0, 0, SRCCOPY);
+                        SelectObject(memDC, oldBitmap);
+                        DeleteObject(memBitmap);
+                        DeleteDC(memDC);
+                    }
                 }
                 EndPaint(hwnd, &ps);
             }
@@ -242,7 +270,6 @@ namespace zhuzi {
             pThis->onRButtonUp(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
             return 0;
         case WM_MOUSEMOVE: {
-            // 获取鼠标坐标
             int x = GET_X_LPARAM(lParam);
             int y = GET_Y_LPARAM(lParam);
             pThis->onMouseMove(x, y);
@@ -390,6 +417,12 @@ namespace zhuzi {
 
     LRESULT CALLBACK zhuziWindow::WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         zhuziWindow* pThis = nullptr;
+        if (msg == WM_CTLCOLOREDIT) {
+            HDC hdc = (HDC)wParam;
+            SetBkColor(hdc, RGB(255, 255, 255));
+            SetTextColor(hdc, RGB(0, 0, 0));
+            return (LRESULT)GetStockObject(WHITE_BRUSH);
+        }
         if (msg == WM_NCCREATE) {
             CREATESTRUCT* pCreate = (CREATESTRUCT*)lParam;
             pThis = (zhuziWindow*)pCreate->lpCreateParams;

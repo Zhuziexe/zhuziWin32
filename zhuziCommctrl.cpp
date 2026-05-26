@@ -24,6 +24,7 @@ namespace zhuzi {
     zhuziLabel::zhuziLabel(zhuziControl* parent)
         : zhuziControl(parent), m_hAlign(AlignHorizontal::Left), m_vAlign(AlignVertical::Top), m_baseStyle(0)
     {
+        m_isCustomDraw = 1;
     }
 
     zhuziLabel::~zhuziLabel() { destroy(); }
@@ -32,7 +33,7 @@ namespace zhuzi {
         // 保存基础样式（去掉对齐相关位）
         m_baseStyle = style | WS_CHILD | WS_VISIBLE | SS_LEFTNOWORDWRAP | WS_CLIPSIBLINGS;
         m_baseStyle &= ~(SS_CENTER | SS_RIGHT | SS_CENTERIMAGE);
-        if (!createControl(L"STATIC", 0, 0, 0, 0, m_baseStyle)) return false;
+        if (!createControl(L"STATIC", 0, 0, 0, 0, m_baseStyle,WS_EX_TRANSPARENT)) return false;
         updateStyle(); // 应用当前对齐设置
         return true;
     }
@@ -72,6 +73,17 @@ namespace zhuzi {
         // 强制重绘
         InvalidateRect(m_hwnd, nullptr, TRUE);
         UpdateWindow(m_hwnd);
+    }
+
+    void zhuziLabel::onPaint(zhuziPaint& paint) {
+        RECT rct{};
+        GetClientRect(m_hwnd, &rct);
+        zhuziBrush transparentBrush(zhuziColor(0, 0, 0, 0));  // Alpha = 0 全透明
+        paint.fillRect(rct.left, rct.top, rct.right - rct.left,
+            rct.bottom - rct.top, transparentBrush);
+        // 不再绘制白色背景，直接绘制文本（背景由父窗口或系统自动透明）
+        zhuziBrush brush(RGB(0, 0, 0));   // 文本颜色黑色
+        paint.drawText(getText(), getFont(), brush, rct, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
 
     // ==================== zhuziListBox ====================
