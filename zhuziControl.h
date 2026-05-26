@@ -105,13 +105,14 @@ namespace zhuzi {
         friend class zhuziWindow;
 
         short int m_id;
-        bool m_isCustomDraw = false;
+        uint8_t m_isCustomDraw = false;
         LayoutType m_layoutType;
         bool m_flag1 = 0;
         int8_t m_flag2 = 0;
         int16_t m_flag3 = 0;
         static LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 
+        virtual bool getTransparent() const { return false; }
     private:
         static std::bitset<1000> s_idUsed;
         void initCreate(LayoutType type);

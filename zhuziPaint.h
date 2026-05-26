@@ -6,6 +6,7 @@
 #include <cmath>
 
 #pragma comment(lib, "gdiplus.lib")
+#pragma comment(lib, "msimg32.lib")
 
 namespace zhuzi {
 
