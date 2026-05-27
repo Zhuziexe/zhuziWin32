@@ -4,6 +4,28 @@
 #include <cmath>
 
 namespace zhuzi {
+    void PremultiplyAlphaBits(void* bits, int width, int height) {
+        // 假设 32 位 BGRA 格式（Windows DIB 默认）
+        BYTE* p = (BYTE*)bits;
+        int stride = width * 4;
+        for (int y = 0; y < height; ++y) {
+            BYTE* row = p + y * stride;
+            for (int x = 0; x < width; ++x) {
+                BYTE* pixel = row + x * 4;
+                BYTE a = pixel[3];
+                if (a == 0) {
+                    pixel[0] = pixel[1] = pixel[2] = 0;
+                }
+                else if (a != 255) {
+                    pixel[0] = (BYTE)((pixel[0] * a) / 255);
+                    pixel[1] = (BYTE)((pixel[1] * a) / 255);
+                    pixel[2] = (BYTE)((pixel[2] * a) / 255);
+                }
+                // a == 255 时 RGB 不变
+            }
+        }
+    }
+
     std::bitset<1000> zhuziControl::s_idUsed;
 
     int zhuziControl::allocateId() {
@@ -221,12 +243,11 @@ namespace zhuzi {
                 if (width > 0 && height > 0) {
                     // 根据是否需要透明背景选择绘制方式
                     if (pThis->getTransparent()) {
-                        // ===== 透明背景方式：使用 32 位位图 + AlphaBlend =====
                         HDC memDC = CreateCompatibleDC(hdc);
                         BITMAPINFO bmi = { 0 };
                         bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
                         bmi.bmiHeader.biWidth = width;
-                        bmi.bmiHeader.biHeight = -height;  // 自上而下
+                        bmi.bmiHeader.biHeight = -height;
                         bmi.bmiHeader.biPlanes = 1;
                         bmi.bmiHeader.biBitCount = 32;
                         bmi.bmiHeader.biCompression = BI_RGB;
@@ -234,10 +255,12 @@ namespace zhuzi {
                         HBITMAP memBitmap = CreateDIBSection(memDC, &bmi, DIB_RGB_COLORS, &pvBits, nullptr, 0);
                         if (memBitmap && pvBits) {
                             HBITMAP oldBitmap = (HBITMAP)SelectObject(memDC, memBitmap);
-                            // 初始化为全透明
-                            memset(pvBits, 0, width * height * 4);
+                            memset(pvBits, 0, width * height * 4);   // 全透明
                             zhuziPaint paint(memDC, rcClient);
                             pThis->onPaint(paint);
+                            // ========= 新增预乘 =========
+                            PremultiplyAlphaBits(pvBits, width, height);
+                            // ===========================
                             BLENDFUNCTION blend = { AC_SRC_OVER, 0, 255, AC_SRC_ALPHA };
                             AlphaBlend(hdc, 0, 0, width, height, memDC, 0, 0, width, height, blend);
                             SelectObject(memDC, oldBitmap);

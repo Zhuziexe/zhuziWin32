@@ -41,7 +41,7 @@ namespace zhuzi {
 
 		void onPaint(zhuziPaint& paint) override;
 
-		bool getTransparent() const override { return true; } // 标签默认透明背景
+		bool getTransparent() const override { return 1; } // 标签默认透明背景
     private:
         AlignHorizontal m_hAlign;
         AlignVertical   m_vAlign;

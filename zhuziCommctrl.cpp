@@ -76,13 +76,18 @@ namespace zhuzi {
     }
 
     void zhuziLabel::onPaint(zhuziPaint& paint) {
-        RECT rct{};
+        RECT rct;
         GetClientRect(m_hwnd, &rct);
-        zhuziBrush transparentBrush(zhuziColor(0, 0, 0, 0));  // Alpha = 0 全透明
-        paint.fillRect(rct.left, rct.top, rct.right - rct.left,
-            rct.bottom - rct.top, transparentBrush);
-        // 不再绘制白色背景，直接绘制文本（背景由父窗口或系统自动透明）
-        zhuziBrush brush(RGB(0, 0, 0));   // 文本颜色黑色
+        if (rct.right <= rct.left || rct.bottom <= rct.top) return;
+
+        zhuziString text = getText();
+        if (text.empty()) return;
+
+		zhuziBrush brush(RGB(0,0,0));
+		//zhuziBrush whitebrush(RGB(255, 255, 255));
+		//zhuziPen whitePen(RGB(255, 255, 255));
+		//paint.drawRect(rct.left, rct.top, rct.right - rct.left, 
+        //    rct.bottom - rct.top, whitePen, &whitebrush);
         paint.drawText(getText(), getFont(), brush, rct, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
 

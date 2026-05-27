@@ -12,7 +12,7 @@ namespace zhuzi {
 
     class zhuziColor {
     public:
-        zhuziColor() : m_color(Gdiplus::Color(0, 0, 0)) {}  // 默认黑色
+        zhuziColor() : m_color(Gdiplus::Color(0, 0, 0)) {}
         zhuziColor(BYTE r, BYTE g, BYTE b, BYTE a = 255) : m_color(Gdiplus::Color(a, r, g, b)) {}
         zhuziColor(COLORREF cr) : m_color(Gdiplus::Color(GetRValue(cr), GetGValue(cr), GetBValue(cr))) {}
         zhuziColor(const Gdiplus::Color& color) : m_color(color) {}
@@ -60,14 +60,13 @@ namespace zhuzi {
 
     class zhuziPaint {
     public:
-        // 从 HDC 和客户区矩形构造（用于双缓冲）
         zhuziPaint(HDC hdc, const RECT& clientRect)
             : m_graphics(hdc), m_clientRect(clientRect) {
             m_graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
             m_graphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
+            m_graphics.SetTextRenderingHint(Gdiplus::TextRenderingHintAntiAliasGridFit);
         }
 
-        // 清除背景
         void clear(const zhuziColor& color) {
             zhuziBrush brush(color);
             m_graphics.FillRectangle(brush.get(), 0, 0, getWidth(), getHeight());
@@ -88,7 +87,7 @@ namespace zhuzi {
         }
 
         void drawText(const zhuziString& text, int x, int y, const zhuziBrush& brush, const zhuziFont& font) {
-            Gdiplus::Font gdiFont(font.getFontFamily(), (Gdiplus::REAL)font.getSize(), font.getStyle(), Gdiplus::UnitPixel);
+            Gdiplus::Font gdiFont(font.getFontFamily(), (Gdiplus::REAL)font.getSize(), font.getStyle());
             Gdiplus::PointF point((float)x, (float)y);
             m_graphics.DrawString(text.c_str(), (int)text.length(), &gdiFont, point, brush.get());
         }
@@ -96,7 +95,7 @@ namespace zhuzi {
         void drawText(const zhuziString& text, const zhuziFont& font, const zhuziBrush& brush,
             const RECT& rect, DWORD format = DT_CENTER | DT_VCENTER | DT_SINGLELINE) {
             float fontSize = (float)font.getSize();
-            if (fontSize <= 0) fontSize = 16.0f;  // 确保正数
+            if (fontSize <= 0) fontSize = 16.0f;
             Gdiplus::Font gdiFont(font.getFontFamily(), fontSize, font.getStyle(), Gdiplus::UnitPixel);
             Gdiplus::StringFormat stringFormat;
 
@@ -124,11 +123,10 @@ namespace zhuzi {
             m_graphics.DrawString(text.c_str(), (int)text.length(), &gdiFont, layoutRect, &stringFormat, brush.get());
         }
 
-        // 测量文本尺寸
         void measureText(const zhuziString& text, const zhuziFont& font, SIZE& size) const {
             Gdiplus::Font gdiFont(font.getFontFamily(), (Gdiplus::REAL)font.getSize(), font.getStyle(), Gdiplus::UnitPixel);
             Gdiplus::RectF bounds;
-            m_graphics.MeasureString(text.c_str(), (INT)text.length(), &gdiFont, Gdiplus::PointF(0, 0), &bounds);
+            m_graphics.MeasureString(text.c_str(), (int)text.length(), &gdiFont, Gdiplus::PointF(0, 0), &bounds);
             size.cx = (int)ceil(bounds.Width);
             size.cy = (int)ceil(bounds.Height);
         }
@@ -137,7 +135,6 @@ namespace zhuzi {
             m_graphics.FillRectangle(brush.get(), x, y, width, height);
         }
 
-        // 在 zhuziPaint 类中添加
         void drawRoundRect(int x, int y, int width, int height, int radius, const zhuziPen& pen, const zhuziBrush* brush = nullptr) {
             if (radius <= 0) {
                 drawRect(x, y, width, height, pen, brush);
@@ -157,10 +154,12 @@ namespace zhuzi {
         int getHeight() const { return m_clientRect.bottom - m_clientRect.top; }
 
         Gdiplus::Graphics& getGraphics() { return m_graphics; }
+
+        HDC getHDC() { return m_graphics.GetHDC(); }
+        void releaseHDC(HDC hdc) { m_graphics.ReleaseHDC(hdc); }
     private:
         Gdiplus::Graphics m_graphics;
         RECT m_clientRect;
     };
-
 
 } // namespace zhuzi
