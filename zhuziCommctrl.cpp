@@ -84,10 +84,6 @@ namespace zhuzi {
         if (text.empty()) return;
 
 		zhuziBrush brush(RGB(0,0,0));
-		//zhuziBrush whitebrush(RGB(255, 255, 255));
-		//zhuziPen whitePen(RGB(255, 255, 255));
-		//paint.drawRect(rct.left, rct.top, rct.right - rct.left, 
-        //    rct.bottom - rct.top, whitePen, &whitebrush);
         paint.drawText(getText(), getFont(), brush, rct, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
 
