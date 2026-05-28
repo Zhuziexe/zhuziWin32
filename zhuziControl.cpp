@@ -2,6 +2,7 @@
 #include "zhuziInstance.h"
 #include <windowsx.h>
 #include <cmath>
+#include "zhuziCommctrl.h"
 
 namespace zhuzi {
     void PremultiplyAlphaBits(void* bits, int width, int height) {
@@ -499,8 +500,22 @@ namespace zhuzi {
             itGeneral->second(wParam, lParam);
             return 0;
         }
+        // 在 zhuziWindow::handleMessage 中，替换原有的 WM_CTLCOLORSTATIC 处理
         if (msg == WM_CTLCOLORSTATIC) {
             HDC hdc = (HDC)wParam;
+            HWND hStatic = (HWND)lParam;
+            zhuziControl* pCtrl = (zhuziControl*)GetWindowLongPtrW(hStatic, GWLP_USERDATA);
+            if (pCtrl) {
+                // 尝试转换为 zhuziFrame
+                if (auto* pFrame = dynamic_cast<zhuziFrame*>(pCtrl)) {
+                    HBRUSH hBrush = pFrame->getBackgroundBrush();
+                    if (hBrush) {
+                        SetBkMode(hdc, TRANSPARENT);
+                        return (LRESULT)hBrush;
+                    }
+                }
+            }
+            // 默认保持透明背景
             SetBkMode(hdc, TRANSPARENT);
             return (LRESULT)GetStockObject(NULL_BRUSH);
         }
