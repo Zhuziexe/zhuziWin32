@@ -38,45 +38,6 @@ directory of `zhuziWin32` to the system\'s `ZHUZI_ROOT` environment
 variable. You can also directly add the directory to `PATH` (for
 command-line access).
 
-### Setting via Command Line (Temporary, current session)
-
-**CMD (admin optional):**
-
-``` cmd
-set ZHUZI_ROOT=C:\path\to\zhuziWin32
-set PATH=%PATH%;%ZHUZI_ROOT%
-```
-
-**PowerShell:**
-
-``` powershell
-$env:ZHUZI_ROOT = "C:\path\to\zhuziWin32"
-$env:PATH += ";$env:ZHUZI_ROOT"
-```
-
-### Permanent Setting (System-wide)
-
-**CMD (run as administrator):**
-
-``` cmd
-setx ZHUZI_ROOT "C:\path\to\zhuziWin32" /M
-setx PATH "%PATH%;C:\path\to\zhuziWin32" /M
-```
-
-**PowerShell (admin):**
-
-``` powershell
-[Environment]::SetEnvironmentVariable("ZHUZI_ROOT", "C:\path\to\zhuziWin32", "Machine")
-$oldPath = [Environment]::GetEnvironmentVariable("PATH", "Machine")
-[Environment]::SetEnvironmentVariable("PATH", "$oldPath;C:\path\to\zhuziWin32", "Machine")
-```
-
-::: note
-**Note:** Replace `C:\path\to\zhuziWin32` with the actual folder path
-where you extracted or cloned the library. You may need to restart your
-terminal or IDE for the changes to take effect.
-:::
-
 ## Quick Start
 
 ### Requirements
@@ -90,17 +51,15 @@ terminal or IDE for the changes to take effect.
 
 1.  Create a new Windows Desktop Application project (or an empty
     project).
-2.  Add the `zhuziWin32` header directory to **Additional Include
+2.  Add the `zhuziWin32` header directory(usually at ...\zhuziWin32\include\) to **Additional Include
     Directories**.
-3.  Add the directory containing `zhuziWin32.lib` to **Additional
-    Library Directories**, and add `zhuziWin32.lib`, `gdiplus.lib`,
-    `comctl32.lib` to **Additional Dependencies**.
-4.  Alternatively, include the following `#pragma` directive in your
-    source code to let the compiler auto-link the library (no project
-    configuration needed):
+3.  Add the directory containing `zhuziWin32.lib(usually at ...\zhuziWin32\lib\)` to **Additional
+    Library Directories**.
+4.  Include the following `#pragma` directive in your
+    source code to let the compiler auto-link the library(after setting **Additional Include Directories** and **Additional Library Directories**):
 
 ``` cpp
-#pragma comment(lib, "zhuziWin32.lib")
+#pragma comment(lib, "zhuziWin32.lib") // Link zhuziWin32.lib
 ```
 
 5.  Build and run.
@@ -153,13 +112,11 @@ Compile and run (using Visual Studio Developer Command Prompt):
 cl /EHsc /I"path\to\zhuziWin32" main.cpp /link gdiplus.lib comctl32.lib
 ```
 
-::: note
 **Note:** The `create(10U, 10U, 10U, 10U)` in the example uses anchor
 layout (the four parameters represent distances to the left, top, right,
 bottom edges of the parent window). The button will automatically resize
 and reposition when the parent window is resized. You can also use
 absolute coordinates: `create(10, 10, 100, 30)`.
-:::
 
 ## Core Class Descriptions
 
