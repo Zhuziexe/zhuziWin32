@@ -1,6 +1,7 @@
 // zhuziRebar.cpp
 #include "zhuziRebar.h"
 #include "zhuziInstance.h"
+#include "zhuziCommctrl.h"
 #include <windowsx.h>
 
 #pragma comment(lib, "comctl32.lib")
@@ -217,7 +218,7 @@ namespace zhuzi {
         UINT_PTR uIdSubclass, DWORD_PTR dwRefData) {
         zhuziRebar* pThis = (zhuziRebar*)dwRefData;
         if (!pThis) return DefSubclassProc(hwnd, msg, wParam, lParam);
-
+        _CONTAINER_MSGHANDLER_IF_N
         if (msg == WM_NOTIFY) {
             LPNMHDR pnmh = (LPNMHDR)lParam;
             if (pnmh->code == RBN_HEIGHTCHANGE) {

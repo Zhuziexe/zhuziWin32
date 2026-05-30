@@ -10,6 +10,8 @@
 #include "zhuziFont.h"
 #include "zhuziPaint.h"
 #include "zhuziRgn.h"
+#include <uxtheme.h>
+#pragma comment(lib, "uxtheme.lib")
 /*
 * zhuziControl.h
 * 定义控件基类和窗口类
@@ -22,6 +24,45 @@ HWND hParent = GetParent(hwnd);\
 if (hParent) {\
 SendMessageW(hParent, msg, wParam, lParam);\
 return 0;}\
+}\
+else if (msg == WM_CTLCOLORSTATIC) {\
+HDC hdc = (HDC)wParam;\
+HWND hChild = (HWND)lParam;\
+zhuziControl* pChildCtrl = (zhuziControl*)GetWindowLongPtrW(hChild, GWLP_USERDATA);\
+if (pChildCtrl) {\
+    if (auto* pFrame = dynamic_cast<zhuziFrame*>(pChildCtrl)) {\
+        HBRUSH hBrush = pFrame->getBackgroundBrush();\
+        if (hBrush) {\
+            SetBkMode(hdc, TRANSPARENT);\
+            return (LRESULT)hBrush;\
+        }\
+    }\
+}\
+SetBkMode(hdc, TRANSPARENT);\
+return (LRESULT)GetStockObject(NULL_BRUSH);\
+}
+
+#define _CONTAINER_MSGHANDLER_IF_N \
+if (msg == WM_COMMAND || msg == WM_NOTIFY) {\
+HWND hParent = GetParent(hwnd);\
+if (hParent) {\
+SendMessageW(hParent, msg, wParam, lParam);}\
+}\
+else if (msg == WM_CTLCOLORSTATIC) {\
+HDC hdc = (HDC)wParam;\
+HWND hChild = (HWND)lParam;\
+zhuziControl* pChildCtrl = (zhuziControl*)GetWindowLongPtrW(hChild, GWLP_USERDATA);\
+if (pChildCtrl) {\
+    if (auto* pFrame = dynamic_cast<zhuziFrame*>(pChildCtrl)) {\
+        HBRUSH hBrush = pFrame->getBackgroundBrush();\
+        if (hBrush) {\
+            SetBkMode(hdc, TRANSPARENT);\
+            return (LRESULT)hBrush;\
+        }\
+    }\
+}\
+SetBkMode(hdc, TRANSPARENT);\
+return (LRESULT)GetStockObject(NULL_BRUSH);\
 }
 //===============================================
 
@@ -72,6 +113,8 @@ namespace zhuzi {
 
         LRESULT SendWindowMessage(UINT msg, WPARAM wParam = NULL, LPARAM lParam = NULL) const;
 
+		void setWindowTheme(const zhuziString themeName);
+
         // 绘图与鼠标事件（可被子类重写）
         virtual void onPaint(zhuziPaint& paint) {}
         virtual void onLButtonUp(int x, int y) {}
@@ -91,13 +134,17 @@ namespace zhuzi {
         // 保留移动操作（可选）
         zhuziControl(zhuziControl&&) = default;
         zhuziControl& operator=(zhuziControl&&) = default;
+
+        void setCustomLayout() {
+            m_layoutType = LayoutType::Custom;
+        }
     protected:
         bool createControl(const wchar_t* className, int x, int y, int width, int height, DWORD style, DWORD exStyle = 0, bool doSubClass = true);
         void applyLayout(int parentWidth, int parentHeight);
         static int allocateId();
         static void releaseId(int id);
 
-        enum class LayoutType : char { None, Absolute, Percent, Anchor };
+        enum class LayoutType : char { None, Absolute, Percent, Anchor, Custom };
         int m_layoutParam[4];
 
         HWND m_hwnd;
@@ -113,6 +160,7 @@ namespace zhuzi {
         static LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 
         virtual bool getTransparent() const { return false; }
+
     private:
         static std::bitset<1000> s_idUsed;
         void initCreate(LayoutType type);

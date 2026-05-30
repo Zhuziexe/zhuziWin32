@@ -1,4 +1,5 @@
 #include "zhuziPanedWindow.h"
+#include "zhuziCommctrl.h"
 #include "zhuziInstance.h"
 #include <windowsx.h>
 

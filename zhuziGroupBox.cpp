@@ -1,6 +1,7 @@
 #include "zhuziGroupBox.h"
 #include "zhuziInstance.h"
 #include "zhuziControl.h"
+#include "zhuziCommctrl.h"
 #include <commctrl.h>
 
 namespace zhuzi {

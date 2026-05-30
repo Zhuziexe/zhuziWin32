@@ -137,8 +137,10 @@
   <ItemGroup>
     <ClCompile Include="zhuziComboBoxEx.cpp" />
     <ClCompile Include="zhuziCommctrl.cpp" />
+    <ClCompile Include="zhuziCommDlg.cpp" />
     <ClCompile Include="zhuziControl.cpp" />
     <ClCompile Include="zhuziDialog.cpp" />
+    <ClCompile Include="zhuziDragDrop.cpp" />
     <ClCompile Include="zhuziDTP.cpp" />
     <ClCompile Include="zhuziEdit.cpp" />
     <ClCompile Include="zhuziFont.cpp" />
@@ -146,6 +148,7 @@
     <ClCompile Include="zhuziImageLabel.cpp" />
     <ClCompile Include="zhuziImageList.cpp" />
     <ClCompile Include="zhuziInstance.cpp" />
+    <ClCompile Include="zhuziLayout.cpp" />
     <ClCompile Include="zhuziListView.cpp" />
     <ClCompile Include="zhuziMenu.cpp" />
     <ClCompile Include="zhuziPaint.cpp" />
@@ -167,9 +170,10 @@
     <ClInclude Include="zhuziBinaryTree.h" />
     <ClInclude Include="zhuziComboBoxEx.h" />
     <ClInclude Include="zhuziCommctrl.h" />
+    <ClInclude Include="zhuziCommDlg.h" />
     <ClInclude Include="zhuziControl.h" />
-    <ClInclude Include="zhuziControlSet.h" />
     <ClInclude Include="zhuziDialog.h" />
+    <ClInclude Include="zhuziDragDrop.h" />
     <ClInclude Include="zhuziDTP.h" />
     <ClInclude Include="zhuziEdit.h" />
     <ClInclude Include="zhuziFont.h" />
@@ -177,6 +181,7 @@
     <ClInclude Include="zhuziImageLabel.h" />
     <ClInclude Include="zhuziImageList.h" />
     <ClInclude Include="zhuziInstance.h" />
+    <ClInclude Include="zhuziLayout.h" />
     <ClInclude Include="zhuziListView.h" />
     <ClInclude Include="zhuziMenu.h" />
     <ClInclude Include="zhuziMutex.h" />

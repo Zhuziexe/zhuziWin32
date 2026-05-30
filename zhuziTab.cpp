@@ -1,6 +1,7 @@
 #include "zhuziTab.h"
 #include "zhuziInstance.h"
 #include "zhuziControl.h"
+#include "zhuziCommctrl.h"
 #include <windowsx.h>
 
 #pragma comment(lib, "comctl32.lib")

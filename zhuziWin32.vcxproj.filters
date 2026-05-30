@@ -99,6 +99,15 @@
     <ClCompile Include="zhuziComboBoxEx.cpp">
       <Filter>源文件\通用控件</Filter>
     </ClCompile>
+    <ClCompile Include="zhuziLayout.cpp">
+      <Filter>源文件\通用控件</Filter>
+    </ClCompile>
+    <ClCompile Include="zhuziDragDrop.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="zhuziCommDlg.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="zhuziInstance.h">
@@ -188,9 +197,6 @@
     <ClInclude Include="zhuziToolBar.h">
       <Filter>头文件\通用控件</Filter>
     </ClInclude>
-    <ClInclude Include="zhuziControlSet.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="zhuziWin32.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -199,6 +205,15 @@
     </ClInclude>
     <ClInclude Include="zhuziComboBoxEx.h">
       <Filter>头文件\通用控件</Filter>
+    </ClInclude>
+    <ClInclude Include="zhuziLayout.h">
+      <Filter>头文件\通用控件</Filter>
+    </ClInclude>
+    <ClInclude Include="zhuziDragDrop.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="zhuziCommDlg.h">
+      <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

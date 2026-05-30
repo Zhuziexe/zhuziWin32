@@ -35,6 +35,9 @@
 #include "zhuziTracker.h"
 #include "zhuziTreeView.h"
 #include "zhuziUpDownEdit.h"
+#include "zhuziComboBoxEx.h"
+#include "zhuziLayout.h"
+#include "zhuziCommDlg.h"
 
 #endif // !NO_ZHUZICONTROLS_INCLUDES
 

@@ -16,9 +16,11 @@ namespace zhuzi {
         s_pInstance = this;
         initCommonControls();
         initGdiplus();
+        OleInitialize(nullptr);          // 新增
     }
 
     zhuziInstance::~zhuziInstance() {
+        OleUninitialize();               // 新增
         shutdownGdiplus();
         s_pInstance = nullptr;
     }
@@ -58,7 +60,8 @@ namespace zhuzi {
     void zhuziInstance::initCommonControls() {
         INITCOMMONCONTROLSEX icex = {};
         icex.dwSize = sizeof(INITCOMMONCONTROLSEX);
-        icex.dwICC = ICC_WIN95_CLASSES | ICC_USEREX_CLASSES | ICC_COOL_CLASSES | ICC_BAR_CLASSES | ICC_TREEVIEW_CLASSES;
+        icex.dwICC = ICC_WIN95_CLASSES | ICC_USEREX_CLASSES | ICC_COOL_CLASSES 
+            |ICC_BAR_CLASSES | ICC_TREEVIEW_CLASSES;
         InitCommonControlsEx(&icex);
     }
 

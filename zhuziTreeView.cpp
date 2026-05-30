@@ -267,9 +267,6 @@ namespace zhuzi {
 
     void zhuziTreeView::setButtons(bool enable) {
         setStyle(TVS_HASBUTTONS, enable);
-        if (enable) {
-            setStyle(TVS_HASLINES, true);
-        }
         if (m_hwnd) {
             SetWindowPos(m_hwnd, nullptr, 0, 0, 0, 0,
                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);

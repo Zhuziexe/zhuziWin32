@@ -215,6 +215,10 @@ namespace zhuzi {
         return SendMessageW(m_hwnd, msg, wParam, lParam);
     }
 
+    void zhuziControl::setWindowTheme(const zhuziString themeName){
+		if (m_hwnd) SetWindowTheme(m_hwnd, themeName.c_str(), nullptr);
+    }
+
     LRESULT CALLBACK zhuziControl::ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData) {
         zhuziControl* pThis = (zhuziControl*)dwRefData;
         if (!pThis) return DefSubclassProc(hwnd, msg, wParam, lParam);
@@ -441,12 +445,6 @@ namespace zhuzi {
 
     LRESULT CALLBACK zhuziWindow::WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         zhuziWindow* pThis = nullptr;
-        if (msg == WM_CTLCOLOREDIT) {
-            HDC hdc = (HDC)wParam;
-            SetBkColor(hdc, RGB(255, 255, 255));
-            SetTextColor(hdc, RGB(0, 0, 0));
-            return (LRESULT)GetStockObject(WHITE_BRUSH);
-        }
         if (msg == WM_NCCREATE) {
             CREATESTRUCT* pCreate = (CREATESTRUCT*)lParam;
             pThis = (zhuziWindow*)pCreate->lpCreateParams;
