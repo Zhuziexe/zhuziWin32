@@ -108,6 +108,9 @@
     <ClCompile Include="zhuziCommDlg.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="CmEdit.cpp">
+      <Filter>源文件\通用控件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="zhuziInstance.h">
@@ -214,6 +217,9 @@
     </ClInclude>
     <ClInclude Include="zhuziCommDlg.h">
       <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CmEdit.h">
+      <Filter>头文件\通用控件</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

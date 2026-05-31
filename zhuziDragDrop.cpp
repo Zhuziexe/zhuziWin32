@@ -10,7 +10,6 @@
 #pragma comment(lib, "ole32.lib")
 #pragma comment(lib, "shell32.lib")
 
-// 定义文件描述符剪贴板格式（用于拖拽图像）
 #ifndef CFSTR_FILEDESCRIPTORW
 #define CFSTR_FILEDESCRIPTORW L"FileGroupDescriptorW"
 #endif
@@ -49,7 +48,7 @@ namespace zhuzi {
         std::unordered_map<HWND, bool> g_windowBound;
     }
 
-    static bool GlobalDropMessageHandler(WPARAM wParam, LPARAM lParam) {
+    static LRESULT GlobalDropMessageHandler(WPARAM wParam, LPARAM lParam) {
         HWND hwndCtrl = reinterpret_cast<HWND>(wParam);
         auto it = g_controlCallbacks.find(hwndCtrl);
         if (it != g_controlCallbacks.end()) {
@@ -58,10 +57,10 @@ namespace zhuzi {
                 it->second(*pData);
                 delete pData;
             }
-            return true;
+            return TRUE;
         }
         delete reinterpret_cast<DragData*>(lParam);
-        return false;
+        return FALSE;
     }
 
     // ---------- IDropTarget 实现 ----------
@@ -111,14 +110,13 @@ namespace zhuzi {
                 data.text = ExtractText(pDataObj, CF_TEXT);
             data.html = ExtractText(pDataObj, static_cast<CLIPFORMAT>(RegisterClipboardFormatW(L"HTML Format")));
 
-            if (m_async && m_targetHwnd && IsWindow(m_targetHwnd)) {
+            // 修改：始终使用 SendMessage 同步，避免 RPC 0x80010001 错误
+            if (m_targetHwnd && IsWindow(m_targetHwnd)) {
                 HWND topParent = GetAncestor(m_targetHwnd, GA_ROOT);
                 if (!topParent) topParent = m_targetHwnd;
                 DragData* pData = new DragData(std::move(data));
-                if (!PostMessageW(topParent, WM_ZHUZI_DROP, reinterpret_cast<WPARAM>(m_targetHwnd), reinterpret_cast<LPARAM>(pData))) {
-                    if (m_syncCallback) m_syncCallback(*pData);
-                    delete pData;
-                }
+                // 使用 SendMessage 确保消息被处理完成
+                SendMessageW(topParent, WM_ZHUZI_DROP, reinterpret_cast<WPARAM>(m_targetHwnd), reinterpret_cast<LPARAM>(pData));
             }
             else if (m_syncCallback) {
                 m_syncCallback(data);
@@ -209,7 +207,10 @@ namespace zhuzi {
 
         HWND wndHandle = parentWnd->getHandle();
         if (!g_windowBound[wndHandle]) {
-            parentWnd->BindChain(WM_ZHUZI_DROP, GlobalDropMessageHandler);
+            // 改用 Bind（新版事件系统），回调返回 LRESULT
+            parentWnd->Bind(WM_ZHUZI_DROP, [](zhuziMessage& msg) -> bool {
+                return GlobalDropMessageHandler(msg.wParam, msg.lParam) == TRUE;
+                });
             g_windowBound[wndHandle] = true;
         }
 
@@ -427,7 +428,7 @@ namespace zhuzi {
         zhuziString m_html;
     };
 
-    // ---------- 增强版 IDataObject（支持拖拽图像）----------
+    // ---------- 增强版 IDataObject ----------
     class EnhancedDataObject : public SimpleDataObject {
     public:
         EnhancedDataObject(const std::vector<zhuziString>& files, const zhuziString& text, const zhuziString& html)
@@ -444,7 +445,6 @@ namespace zhuzi {
             if (!m_files.empty()) {
                 FORMATETC fe = { CF_HDROP, nullptr, DVASPECT_CONTENT, -1, TYMED_HGLOBAL };
                 formats.push_back(fe);
-                // 添加文件描述符格式（用于拖拽图像）
                 fe.cfFormat = static_cast<CLIPFORMAT>(RegisterClipboardFormatW(CFSTR_FILEDESCRIPTORW));
                 formats.push_back(fe);
             }

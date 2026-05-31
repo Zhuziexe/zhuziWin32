@@ -34,25 +34,23 @@ namespace zhuzi {
         if (!createControl(TRACKBAR_CLASSW, 0, 0, 0, 0, finalStyle))
             return false;
 
-        // 向父窗口注册链式消息处理，捕获滚动消息
-        zhuziWindow* pWin = dynamic_cast<zhuziWindow*>(m_parent);
+        zhuziWindow* pWin = findParentWindow(this);
         if (pWin) {
-            auto handler = [this](WPARAM wParam, LPARAM lParam) -> bool {
-                // 判断消息是否来自当前滑动条
-                if ((HWND)lParam == m_hwnd) {
-                    int code = LOWORD(wParam);
+            auto handler = [this](zhuziMessage& msg) -> bool {
+                HWND hwndScroll = (HWND)msg.lParam;
+                if (hwndScroll == m_hwnd) {
+                    int code = LOWORD(msg.wParam);
                     if (code == SB_THUMBPOSITION || code == SB_ENDSCROLL || code == SB_THUMBTRACK) {
                         if (m_onPosChange) {
                             m_onPosChange(getPos());
                         }
                     }
-                    // 返回 false 以便消息继续传递（如果有其他控件也要处理）
-                    return false;
+                    return true;   // 消息已处理
                 }
                 return false;
                 };
-            pWin->BindChain(WM_HSCROLL, handler);
-            pWin->BindChain(WM_VSCROLL, handler);
+            pWin->Bind(WM_HSCROLL, handler);
+            pWin->Bind(WM_VSCROLL, handler);
         }
 
         setRange(0, 100);

@@ -96,16 +96,10 @@ namespace zhuzi {
         if (m_flags.notifyRegistered) return;
         if (!m_hwnd) return;
 
-        zhuziWindow* parentWnd = nullptr;
-        zhuziControl* p = m_parent;
-        while (p) {
-            parentWnd = dynamic_cast<zhuziWindow*>(p);
-            if (parentWnd) break;
-            p = p->getParent();
-        }
+        zhuziWindow* parentWnd = findParentWindow(this);
         if (parentWnd) {
-            parentWnd->BindChain(WM_NOTIFY, [this](WPARAM, LPARAM lParam) -> bool {
-                NMHDR* pnmh = reinterpret_cast<NMHDR*>(lParam);
+            parentWnd->Bind(WM_NOTIFY, [this](zhuziMessage& msg) -> bool {
+                NMHDR* pnmh = reinterpret_cast<NMHDR*>(msg.lParam);
                 if (pnmh->hwndFrom == m_hwnd) {
                     return handleNotifyFromParent(pnmh);
                 }

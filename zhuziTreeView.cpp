@@ -3,7 +3,6 @@
 #include <commctrl.h>
 #include <windowsx.h>
 
-// 兼容旧 SDK：定义缺少的常量
 #ifndef TVS_EX_CHECKBOXES
 #define TVS_EX_CHECKBOXES 0x0004
 #endif
@@ -23,6 +22,7 @@ namespace zhuzi {
 
     template<typename T>
     inline void setCallbackFunc(std::vector<void*>& arr, int idx, T&& func) {
+        if (idx >= (int)arr.size()) return;
         if (arr[idx]) {
             delete reinterpret_cast<T*>(arr[idx]);
             arr[idx] = nullptr;
@@ -32,7 +32,6 @@ namespace zhuzi {
         }
     }
 
-    // ==================== zhuziTreeView 实现 ====================
     zhuziTreeView::zhuziTreeView(zhuziControl* parent)
         : zhuziControl(parent)
         , m_pendingStyleMask(0)
@@ -54,7 +53,6 @@ namespace zhuzi {
         if (!createControl(WC_TREEVIEWW, 0, 0, 0, 0, finalStyle))
             return false;
 
-        // 应用缓存的样式
         if (m_flags.hasPendingStyle) {
             LONG_PTR curStyle = GetWindowLongPtrW(m_hwnd, GWL_STYLE);
             LONG_PTR mask = static_cast<LONG_PTR>(m_pendingStyleMask);
@@ -83,6 +81,7 @@ namespace zhuzi {
             RemoveWindowSubclass(m_hwnd, TreeViewSubclassProc, 0);
             m_flags.isSubclassed = false;
         }
+        zhuziControl::destroy();
     }
 
     void zhuziTreeView::registerParentNotify() {
@@ -97,8 +96,8 @@ namespace zhuzi {
             p = p->getParent();
         }
         if (parentWnd) {
-            parentWnd->BindChain(WM_NOTIFY, [this](WPARAM, LPARAM lParam) -> bool {
-                NMHDR* pnmh = reinterpret_cast<NMHDR*>(lParam);
+            parentWnd->Bind(WM_NOTIFY, [this](zhuziMessage& msg) -> bool {
+                NMHDR* pnmh = reinterpret_cast<NMHDR*>(msg.lParam);
                 if (pnmh->hwndFrom == m_hwnd) {
                     return handleNotifyFromParent(pnmh);
                 }
@@ -145,25 +144,14 @@ namespace zhuzi {
             return false;
 
         case TVN_ITEMCHANGEDW:
-            return handleItemChanged((NMTREEVIEWW*)pnmh);
+            // 仅用于调试或内部维护，不触发用户回调
+            break;
 
         case TVN_BEGINLABELEDITW:
             return handleBeginLabelEdit((NMTVDISPINFOW*)pnmh);
 
         case TVN_ENDLABELEDITW:
             return handleEndLabelEdit((NMTVDISPINFOW*)pnmh);
-        }
-        return false;
-    }
-
-    bool zhuziTreeView::handleItemChanged(NMTREEVIEWW* pnmtv) {
-        UINT oldState = pnmtv->itemOld.state & TVIS_STATEIMAGEMASK;
-        UINT newState = pnmtv->itemNew.state & TVIS_STATEIMAGEMASK;
-        if (oldState != newState) {
-            if (auto* cb = getCallbackFunc<std::function<void(zhuziTreeItem, bool)>>(m_callbacks[TVCB_CHECK])) {
-                bool checked = (newState >> 12) == 2;
-                (*cb)(zhuziTreeItem(pnmtv->itemNew.hItem), checked);
-            }
         }
         return false;
     }
@@ -229,13 +217,11 @@ namespace zhuzi {
             SetWindowLongPtrW(m_hwnd, GWL_STYLE, style);
             SetWindowPos(m_hwnd, nullptr, 0, 0, 0, 0,
                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
-            // 如果启用复选框，刷新所有现有节点的状态图像
             if (enable)
                 refreshAllCheckStates();
             InvalidateRect(m_hwnd, nullptr, TRUE);
         }
         else {
-            // 尚未创建，缓存样式
             if (enable) {
                 m_pendingStyleMask |= TVS_CHECKBOXES;
                 m_pendingStyleValue |= TVS_CHECKBOXES;
@@ -451,7 +437,7 @@ namespace zhuzi {
         item.hItem = hItem.handle();
         item.stateMask = TVIS_STATEIMAGEMASK;
         TreeView_GetItem(m_hwnd, &item);
-        return (item.state >> 12) == 2;
+        return ((item.state >> 12) & 0x0F) == 2;
     }
 
     bool zhuziTreeView::editLabel(zhuziTreeItem hItem) {
@@ -469,7 +455,7 @@ namespace zhuzi {
             item.hItem = hItem;
             item.stateMask = TVIS_STATEIMAGEMASK;
             if (TreeView_GetItem(m_hwnd, &item)) {
-                UINT stateImage = (item.state >> 12);
+                UINT stateImage = (item.state >> 12) & 0x0F;
                 if (stateImage != 1 && stateImage != 2) {
                     item.state = INDEXTOSTATEIMAGEMASK(1);
                     TreeView_SetItem(m_hwnd, &item);
@@ -489,7 +475,6 @@ namespace zhuzi {
         }
     }
 
-    // ---------- 回调设置 ----------
     void zhuziTreeView::setOnSelChange(std::function<void(zhuziTreeItem)> callback) {
         setCallbackFunc(m_callbacks, TVCB_SELCHANGE, std::move(callback));
         registerParentNotify();
@@ -507,12 +492,6 @@ namespace zhuzi {
 
     void zhuziTreeView::setOnExpand(std::function<void(zhuziTreeItem, bool expanding)> callback) {
         setCallbackFunc(m_callbacks, TVCB_EXPAND, std::move(callback));
-        registerParentNotify();
-    }
-
-    void zhuziTreeView::setOnCheck(std::function<void(zhuziTreeItem, bool checked)> callback) {
-        setCheckBoxes(true);
-        setCallbackFunc(m_callbacks, TVCB_CHECK, std::move(callback));
         registerParentNotify();
     }
 
@@ -539,7 +518,6 @@ namespace zhuzi {
     }
 
     LRESULT zhuziTreeView::handleSubclassMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
-        // 预留扩展，直接返回 -1 让默认处理
         return -1;
     }
 
@@ -549,37 +527,23 @@ namespace zhuzi {
 
     void zhuziTreeView::addFromBTree(const zhuziBinaryTree<zhuziString>& tree) {
         if (tree.empty()) return;
-
-        // 获取二叉树根节点
         auto rootNode = tree.getRoot();
         if (!rootNode) return;
-
-        // 批量插入前关闭重绘
         setAutoRedraw(false);
-
-        // 插入根节点
         zhuziTreeItem rootItem = insertRootItem(rootNode->data);
-
-        // 递归添加子节点
         std::function<void(const zhuziBinaryTree<zhuziString>::Node*, zhuziTreeItem)> addChildren =
             [&](const zhuziBinaryTree<zhuziString>::Node* node, zhuziTreeItem parentItem) {
             if (!node) return;
-
-            // 处理左子树
             if (node->left) {
                 zhuziTreeItem leftItem = insertItem(parentItem, node->left->data);
                 addChildren(node->left, leftItem);
             }
-            // 处理右子树
             if (node->right) {
                 zhuziTreeItem rightItem = insertItem(parentItem, node->right->data);
                 addChildren(node->right, rightItem);
             }
             };
-
         addChildren(rootNode, rootItem);
-
-        // 恢复重绘并刷新
         setAutoRedraw(true);
         InvalidateRect(m_hwnd, nullptr, TRUE);
     }

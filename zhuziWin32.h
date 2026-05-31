@@ -12,6 +12,7 @@
 #include "zhuziPaint.h"
 #include "zhuziString.h"
 #include "zhuziImageList.h"
+#include "zhuziDragDrop.h"
 
 #ifndef NO_ZHUZICONTROLS_INCLUDES
 
@@ -38,6 +39,7 @@
 #include "zhuziComboBoxEx.h"
 #include "zhuziLayout.h"
 #include "zhuziCommDlg.h"
+#include "CmEdit.h"
 
 #endif // !NO_ZHUZICONTROLS_INCLUDES
 

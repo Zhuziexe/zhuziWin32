@@ -156,8 +156,8 @@ namespace zhuzi {
         }
 
         if (parentWnd) {
-            parentWnd->BindChain(WM_NOTIFY, [this](WPARAM, LPARAM lParam) -> bool {
-                NMHDR* pnmh = reinterpret_cast<NMHDR*>(lParam);
+            parentWnd->Bind(WM_NOTIFY, [this](zhuziMessage& msg) -> bool {
+                NMHDR* pnmh = reinterpret_cast<NMHDR*>(msg.lParam);
                 if (pnmh->hwndFrom == m_hwnd) {
                     return handleNotifyFromParent(pnmh);
                 }

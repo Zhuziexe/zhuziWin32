@@ -30,6 +30,9 @@ namespace zhuzi {
         int getSize() const { return m_pointSize; }
         int getStyle() const;  // 返回 GDI+ 样式标志
 
+		bool isbold() const { return m_bold; }
+		bool isitalic() const { return m_italic; }
+		bool isunderline() const { return m_underline; }
     private:
         HFONT m_hFont;
         zhuziString m_faceName;

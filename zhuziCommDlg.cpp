@@ -20,14 +20,12 @@ namespace zhuzi {
             IID_IFileOpenDialog, reinterpret_cast<void**>(&pFileOpen));
         if (FAILED(hr)) return false;
 
-        // 强制文件模式，避免显示文件夹
         DWORD dwFlags;
         pFileOpen->GetOptions(&dwFlags);
         dwFlags |= FOS_FORCEFILESYSTEM;
         dwFlags &= ~FOS_PICKFOLDERS;
         pFileOpen->SetOptions(dwFlags);
 
-        // 设置过滤器
         if (!filters.empty()) {
             std::vector<COMDLG_FILTERSPEC> specs(filters.size());
             for (size_t i = 0; i < filters.size(); ++i) {
@@ -35,7 +33,7 @@ namespace zhuzi {
                 specs[i].pszSpec = filters[i].pattern.c_str();
             }
             pFileOpen->SetFileTypes((UINT)specs.size(), specs.data());
-            pFileOpen->SetFileTypeIndex(1); // 默认选中第一个过滤器
+            pFileOpen->SetFileTypeIndex(1);
         }
 
         if (!defaultExtension.empty()) {
@@ -68,14 +66,12 @@ namespace zhuzi {
             IID_IFileOpenDialog, reinterpret_cast<void**>(&pFileOpen));
         if (FAILED(hr)) return false;
 
-        // 强制文件模式 + 多选
         DWORD dwFlags;
         pFileOpen->GetOptions(&dwFlags);
         dwFlags |= FOS_FORCEFILESYSTEM | FOS_ALLOWMULTISELECT;
         dwFlags &= ~FOS_PICKFOLDERS;
         pFileOpen->SetOptions(dwFlags);
 
-        // 设置过滤器
         if (!filters.empty()) {
             std::vector<COMDLG_FILTERSPEC> specs(filters.size());
             for (size_t i = 0; i < filters.size(); ++i) {
@@ -163,20 +159,17 @@ namespace zhuzi {
         return SUCCEEDED(hr);
     }
 
-    // ---------- 颜色选择 ----------
-    bool ColorDialog(HWND hwndOwner, COLORREF& color, COLORREF customColors[16]) {
+    // ---------- 颜色选择（使用 zhuziColor，不再需要外部 customColors 数组）----------
+    bool ColorDialog(HWND hwndOwner, zhuziColor& color) {
+        static COLORREF customColors[16] = { 0 }; // 静态保留自定义颜色
         CHOOSECOLORW cc = { 0 };
         cc.lStructSize = sizeof(cc);
         cc.hwndOwner = hwndOwner;
-        cc.rgbResult = color;
+        cc.rgbResult = color.toCOLORREF();
         cc.lpCustColors = customColors;
-        if (cc.lpCustColors == nullptr) {
-            static COLORREF dummy[16] = { 0 };
-            cc.lpCustColors = dummy;
-        }
         cc.Flags = CC_RGBINIT | CC_FULLOPEN;
         if (ChooseColorW(&cc)) {
-            color = cc.rgbResult;
+            color = zhuziColor(cc.rgbResult);
             return true;
         }
         return false;
@@ -190,7 +183,6 @@ namespace zhuzi {
             GetObjectW(hFont, sizeof(LOGFONTW), &lf);
         }
         else {
-            // 默认字体
             wcscpy_s(lf.lfFaceName, L"Microsoft YaHei");
             HDC hdc = GetDC(nullptr);
             int dpiY = GetDeviceCaps(hdc, LOGPIXELSY);

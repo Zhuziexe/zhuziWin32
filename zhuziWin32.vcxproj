@@ -135,6 +135,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="CmEdit.cpp" />
     <ClCompile Include="zhuziComboBoxEx.cpp" />
     <ClCompile Include="zhuziCommctrl.cpp" />
     <ClCompile Include="zhuziCommDlg.cpp" />
@@ -166,6 +167,7 @@
     <ClCompile Include="zhuziUpDownEdit.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CmEdit.h" />
     <ClInclude Include="MyCustomControl.h" />
     <ClInclude Include="zhuziBinaryTree.h" />
     <ClInclude Include="zhuziComboBoxEx.h" />

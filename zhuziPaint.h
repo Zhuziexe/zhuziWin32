@@ -12,14 +12,41 @@ namespace zhuzi {
 
     class zhuziColor {
     public:
-        zhuziColor() : m_color(Gdiplus::Color(0, 0, 0)) {}
-        zhuziColor(BYTE r, BYTE g, BYTE b, BYTE a = 255) : m_color(Gdiplus::Color(a, r, g, b)) {}
-        zhuziColor(COLORREF cr) : m_color(Gdiplus::Color(GetRValue(cr), GetGValue(cr), GetBValue(cr))) {}
-        zhuziColor(const Gdiplus::Color& color) : m_color(color) {}
-        operator Gdiplus::Color() const { return m_color; }
-        COLORREF toCOLORREF() const { return RGB(m_color.GetR(), m_color.GetG(), m_color.GetB()); }
+        // 构造
+        zhuziColor() : m_color(RGB(0, 0, 0)) {}
+        zhuziColor(BYTE r, BYTE g, BYTE b, BYTE a = 255)
+            : m_color(RGB(r, g, b)), m_alpha(a) {
+        }
+        zhuziColor(COLORREF cr, BYTE a = 255)
+            : m_color(cr), m_alpha(a) {
+        }
+        zhuziColor(const Gdiplus::Color& color)
+            : m_color(RGB(color.GetR(), color.GetG(), color.GetB())),
+            m_alpha(color.GetA()) {
+        }
+
+        // 转换为 Gdiplus::Color（用于绘图）
+        Gdiplus::Color toGdiplusColor() const {
+            return Gdiplus::Color(m_alpha, GetR(), GetG(), GetB());
+        }
+        operator Gdiplus::Color() const { return toGdiplusColor(); }
+
+        // 转换为 COLORREF
+        COLORREF toCOLORREF() const { return m_color; }
+        operator COLORREF() const { return m_color; }
+
+        // 获取 RGBA 分量
+        BYTE GetR() const { return GetRValue(m_color); }
+        BYTE GetG() const { return GetGValue(m_color); }
+        BYTE GetB() const { return GetBValue(m_color); }
+        BYTE GetA() const { return m_alpha; }
+
+        // 设置 alpha（透明度）
+        void setAlpha(BYTE a) { m_alpha = a; }
+
     private:
-        Gdiplus::Color m_color;
+        COLORREF m_color;
+        BYTE m_alpha; // 透明度 0-255
     };
 
     class zhuziPen {
@@ -99,7 +126,6 @@ namespace zhuzi {
             Gdiplus::Font gdiFont(font.getFontFamily(), fontSize, font.getStyle(), Gdiplus::UnitPixel);
             Gdiplus::StringFormat stringFormat;
 
-            // 水平对齐
             if (format & DT_CENTER)
                 stringFormat.SetAlignment(Gdiplus::StringAlignmentCenter);
             else if (format & DT_RIGHT)
@@ -107,7 +133,6 @@ namespace zhuzi {
             else
                 stringFormat.SetAlignment(Gdiplus::StringAlignmentNear);
 
-            // 垂直对齐
             if (format & DT_VCENTER)
                 stringFormat.SetLineAlignment(Gdiplus::StringAlignmentCenter);
             else if (format & DT_BOTTOM)

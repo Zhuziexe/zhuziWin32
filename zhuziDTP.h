@@ -65,11 +65,12 @@ namespace zhuzi {
         std::function<void(const SYSTEMTIME&)> m_onDateTimeChange;
         std::function<void(bool)> m_onCheckChange;
 
-        bool m_hasCustomFormat;
         zhuziString m_customFormatString;
         Format m_currentFormat;
         bool m_useUpDown;
         bool m_showNone;
+        bool m_eventBound;
+        bool m_hasCustomFormat;
 
         struct RangeInfo {
             bool hasMin, hasMax;
@@ -79,6 +80,7 @@ namespace zhuzi {
         static const wchar_t* DTP_CLASS_NAME;
         static bool s_classInitialized;
         static void initDTPClass();
+
     };
 
     class zhuziMonthCalendar : public zhuziControl {
@@ -105,6 +107,7 @@ namespace zhuzi {
 
     private:
         std::function<void(const SYSTEMTIME&)> m_onSelChange;
+        bool m_eventBound;   // ÐÂÔö
         static const wchar_t* MONTHCAL_CLASS_NAME;
         static bool s_classInitialized;
         static void initMonthCalClass();

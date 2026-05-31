@@ -200,8 +200,9 @@ namespace zhuzi {
     void zhuziToolBar::setOnClick(int cmdId, std::function<void()> callback) {
         zhuziWindow* parentWnd = findParentWindow(this);
         if (parentWnd) {
-            parentWnd->Bind(WM_COMMAND, (WPARAM)cmdId, [callback](LPARAM) {
+            parentWnd->Bind(WM_COMMAND, (WPARAM)cmdId, [callback](zhuziMessage&) -> bool {
                 if (callback) callback();
+                return true;
                 });
         }
     }

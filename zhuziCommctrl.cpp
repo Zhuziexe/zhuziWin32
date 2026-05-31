@@ -14,8 +14,9 @@ namespace zhuzi {
 
     void zhuziButton::setOnClick(std::function<void()> callback) {
         if (auto* win = findParentWindow(this)) {
-            win->Bind(WM_COMMAND, MAKEWPARAM(m_id, BN_CLICKED), [callback](LPARAM) {
+            win->Bind(WM_COMMAND, MAKEWPARAM(m_id, BN_CLICKED), [callback](zhuziMessage& msg) -> bool {
                 if (callback) callback();
+                return true;   // 消息已处理
                 });
         }
     }
@@ -145,16 +146,18 @@ namespace zhuzi {
 
     void zhuziListBox::setOnSelChange(std::function<void()> callback) {
         if (auto* win = findParentWindow(this)) {
-            win->Bind(WM_COMMAND, MAKEWPARAM(m_id, LBN_SELCHANGE), [callback](LPARAM) {
+            win->Bind(WM_COMMAND, MAKEWPARAM(m_id, LBN_SELCHANGE), [callback](zhuziMessage&) -> bool {
                 if (callback) callback();
+                return true;
                 });
         }
     }
 
     void zhuziListBox::setOnDoubleClick(std::function<void()> callback) {
         if (auto* win = findParentWindow(this)) {
-            win->Bind(WM_COMMAND, MAKEWPARAM(m_id, LBN_DBLCLK), [callback](LPARAM) {
+            win->Bind(WM_COMMAND, MAKEWPARAM(m_id, LBN_DBLCLK), [callback](zhuziMessage&) -> bool {
                 if (callback) callback();
+                return true;
                 });
         }
     }
@@ -243,16 +246,18 @@ namespace zhuzi {
 
     void zhuziComboBox::setOnSelChange(std::function<void()> callback) {
         if (auto* win = findParentWindow(this)) {
-            win->Bind(WM_COMMAND, MAKEWPARAM(m_id, CBN_SELCHANGE), [callback](LPARAM) {
+            win->Bind(WM_COMMAND, MAKEWPARAM(m_id, CBN_SELCHANGE), [callback](zhuziMessage&) {
                 if (callback) callback();
+                return true;
                 });
         }
     }
 
     void zhuziComboBox::setOnDoubleClick(std::function<void()> callback) {
         if (auto* win = findParentWindow(this)) {
-            win->Bind(WM_COMMAND, MAKEWPARAM(m_id, CBN_DBLCLK), [callback](LPARAM) {
+            win->Bind(WM_COMMAND, MAKEWPARAM(m_id, CBN_DBLCLK), [callback](zhuziMessage&) {
                 if (callback) callback();
+                return true;
                 });
         }
     }
@@ -275,8 +280,10 @@ namespace zhuzi {
 
     void zhuziCheckButton::setOnCheck(std::function<void(bool)> callback) {
         if (auto* win = findParentWindow(this)) {
-            win->Bind(WM_COMMAND, MAKEWPARAM(m_id, BN_CLICKED),
-                [this, callback](LPARAM) { if (callback) callback(isChecked()); });
+            win->Bind(WM_COMMAND, MAKEWPARAM(m_id, BN_CLICKED), [this, callback](zhuziMessage&) -> bool {
+                if (callback) callback(isChecked());
+                return true;
+                });
         }
     }
 
@@ -299,7 +306,9 @@ namespace zhuzi {
     void zhuziRadioButton::setOnCheck(std::function<void(bool)> callback) {
         if (auto* win = findParentWindow(this)) {
             win->Bind(WM_COMMAND, MAKEWPARAM(m_id, BN_CLICKED),
-                [this, callback](LPARAM) { if (callback) callback(isChecked()); });
+                [this, callback](zhuziMessage&) { if (callback) callback(isChecked());
+                    return true;
+                });
         }
     }
 

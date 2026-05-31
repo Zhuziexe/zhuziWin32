@@ -3,6 +3,7 @@
 #include <vector>
 #include "zhuziString.h"
 #include "zhuziFont.h"
+#include "zhuziPaint.h"
 
 namespace zhuzi {
 
@@ -30,8 +31,8 @@ namespace zhuzi {
         const zhuziString& defaultExtension = L"",
         const zhuziString& defaultFileName = L"");
 
-    // 颜色选择
-    bool ColorDialog(HWND hwndOwner, COLORREF& color, COLORREF customColors[16] = nullptr);
+    // 颜色选择（使用 zhuziColor，不再需要 customColors 数组）
+    bool ColorDialog(HWND hwndOwner, zhuziColor& color);
 
     // 字体选择
     bool FontDialog(HWND hwndOwner, zhuziFont& font);

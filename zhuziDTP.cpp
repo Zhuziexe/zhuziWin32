@@ -25,7 +25,8 @@ namespace zhuzi {
         , m_hasCustomFormat(false)
         , m_currentFormat(Format::ShortDate)
         , m_useUpDown(false)
-        , m_showNone(false) {
+        , m_showNone(false)
+        , m_eventBound(false) {
         m_rangeInfo.hasMin = false;
         m_rangeInfo.hasMax = false;
         ZeroMemory(&m_rangeInfo.min, sizeof(SYSTEMTIME));
@@ -248,23 +249,22 @@ namespace zhuzi {
     bool zhuziDTP::isShowNoneStyle() const { return m_hwnd ? (GetWindowLongPtrW(m_hwnd, GWL_STYLE) & DTS_SHOWNONE) != 0 : m_showNone; }
 
     void zhuziDTP::setupEventHandling() {
+        if (m_eventBound) return;          // 防止重复绑定
         if (!m_hwnd) return;
-        zhuziWindow* parentWindow = nullptr;
-        zhuziControl* parent = m_parent;
-        while (parent) {
-            if (auto* win = dynamic_cast<zhuziWindow*>(parent)) { parentWindow = win; break; }
-            parent = parent->getParent();
-        }
-        if (parentWindow) {
-            parentWindow->BindChain(WM_NOTIFY, [this](WPARAM, LPARAM lParam) -> bool {
-                NMHDR* pNmhdr = (NMHDR*)lParam;
-                if (pNmhdr->hwndFrom == m_hwnd && (pNmhdr->code == DTN_DATETIMECHANGE || pNmhdr->code == DTN_USERSTRING)) {
+        zhuziWindow* parentWindow = findParentWindow(this);
+        if (!parentWindow) return;
+
+        m_eventBound = true;
+        parentWindow->Bind(WM_NOTIFY, [this](zhuziMessage& msg) -> bool {
+            NMHDR* pNmhdr = (NMHDR*)msg.lParam;
+            if (pNmhdr->hwndFrom == m_hwnd) {
+                if (pNmhdr->code == DTN_DATETIMECHANGE || pNmhdr->code == DTN_USERSTRING) {
                     sendDateTimeChangeNotification();
-                    return true;
+                    return true;   // 已处理
                 }
-                return false;
-                });
-        }
+            }
+            return false;  // 未处理，继续传递
+            });
     }
 
     void zhuziDTP::sendDateTimeChangeNotification() {
@@ -296,25 +296,25 @@ namespace zhuzi {
         }
     }
 
-    zhuziMonthCalendar::zhuziMonthCalendar(zhuziControl* parent) : zhuziControl(parent) { initMonthCalClass(); }
+    zhuziMonthCalendar::zhuziMonthCalendar(zhuziControl* parent)
+        : zhuziControl(parent), m_eventBound(false) {
+        initMonthCalClass();
+    }
     zhuziMonthCalendar::~zhuziMonthCalendar() { destroy(); }
 
     bool zhuziMonthCalendar::onCreate(DWORD style) {
         DWORD calStyle = WS_CHILD | WS_VISIBLE | style;
         if (!createControl(MONTHCAL_CLASS_NAME, 0, 0, 0, 0, calStyle)) return false;
 
-        zhuziWindow* parentWindow = nullptr;
-        zhuziControl* parent = m_parent;
-        while (parent) {
-            if (auto* win = dynamic_cast<zhuziWindow*>(parent)) { parentWindow = win; break; }
-            parent = parent->getParent();
-        }
-        if (parentWindow) {
-            parentWindow->BindChain(WM_NOTIFY, [this](WPARAM, LPARAM lParam) -> bool {
-                NMHDR* pNmhdr = (NMHDR*)lParam;
+        zhuziWindow* parentWindow = findParentWindow(this);
+        if (parentWindow && !m_eventBound) {
+            m_eventBound = true;
+            parentWindow->Bind(WM_NOTIFY, [this](zhuziMessage& msg) -> bool {
+                NMHDR* pNmhdr = (NMHDR*)msg.lParam;
                 if (pNmhdr->hwndFrom == m_hwnd && pNmhdr->code == MCN_SELCHANGE) {
-                    NMSELCHANGE* pChange = (NMSELCHANGE*)lParam;
+                    NMSELCHANGE* pChange = (NMSELCHANGE*)msg.lParam;
                     if (m_onSelChange) m_onSelChange(pChange->stSelStart);
+                    return true;
                 }
                 return false;
                 });

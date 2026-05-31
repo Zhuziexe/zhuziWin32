@@ -181,6 +181,23 @@ namespace zhuzi {
         font.applyTo(m_hwnd);
     }
 
+    zhuziFont zhuziControl::getFont() const {
+        if (!m_hwnd) return zhuziFont(L"Microsoft YaHei", 16);
+        HFONT hFont = (HFONT)SendMessage(m_hwnd, WM_GETFONT, 0, 0);
+        if (!hFont) return zhuziFont(L"Microsoft YaHei", 16);
+        LOGFONTW lf = { 0 };
+        GetObjectW(hFont, sizeof(LOGFONTW), &lf);
+        HDC screenDC = GetDC(nullptr);
+        int dpiY = GetDeviceCaps(screenDC, LOGPIXELSY);
+        ReleaseDC(nullptr, screenDC);
+        int pointSize = MulDiv(-lf.lfHeight, 72, dpiY);
+        if (pointSize <= 0) pointSize = 16;
+        bool bold = (lf.lfWeight >= FW_BOLD);
+        bool italic = (lf.lfItalic != 0);
+        bool underline = (lf.lfUnderline != 0);
+        return zhuziFont(lf.lfFaceName, pointSize, bold, italic, underline);
+    }
+
     void zhuziControl::setGeometry(int x, int y, int w, int h) {
         m_layoutType = LayoutType::Absolute;
         m_layoutParam[0] = x; m_layoutParam[1] = y;
@@ -321,24 +338,15 @@ namespace zhuzi {
     const wchar_t* zhuziWindow::WINDOW_CLASS_NAME = L"zhuziWindowClass";
     bool zhuziWindow::s_classRegistered = false;
 
-    zhuziWindow::zhuziWindow(zhuziWindow* parent)
-        : zhuziControl(parent), m_hBgBrush(nullptr) {
-        m_flag1 = (parent == nullptr);
-        if (m_flag1) zhuziInstance::registerTopLevelWindow();
+    zhuziWindow::zhuziWindow()
+        : zhuziControl(nullptr)
+        , m_hBgBrush(nullptr)
+        , m_minWidth(0), m_minHeight(0), m_maxWidth(0), m_maxHeight(0)
+        , m_nextHandlerId(1) {
     }
 
     zhuziWindow::~zhuziWindow() {
-        if (m_hBgBrush) DeleteObject(m_hBgBrush);
         destroy();
-    }
-
-    void zhuziWindow::setBgColor(COLORREF color) {
-        if (m_hBgBrush) DeleteObject(m_hBgBrush);
-        m_hBgBrush = CreateSolidBrush(color);
-        if (m_hwnd) {
-            // 触发重绘
-            InvalidateRect(m_hwnd, nullptr, TRUE);
-        }
     }
 
     bool zhuziWindow::RegisterWindowClass() {
@@ -362,23 +370,24 @@ namespace zhuzi {
 
     bool zhuziWindow::onCreate(DWORD style) {
         if (!RegisterWindowClass()) return false;
-        HWND hParent = m_parent ? m_parent->getHandle() : nullptr;
-        int x = m_layoutParam[0];
-        int y = m_layoutParam[1];
-        int width = m_layoutParam[2];
-        int height = m_layoutParam[3];
         m_hwnd = CreateWindowExW(0, WINDOW_CLASS_NAME, m_windowTitle.c_str(), style,
-            x, y, width, height, hParent, nullptr, zhuziInstance::getHandle(), this);
+            m_layoutParam[0], m_layoutParam[1], m_layoutParam[2], m_layoutParam[3],
+            nullptr, nullptr, zhuziInstance::getHandle(), this);
         if (!m_hwnd) return false;
         SetWindowLongPtrW(m_hwnd, GWLP_USERDATA, (LONG_PTR)this);
         UpdateWindow(m_hwnd);
+        zhuziInstance::registerTopLevelWindow(m_hwnd);
         return true;
     }
 
     void zhuziWindow::destroy() {
-        if (m_hwnd && IsWindow(m_hwnd)) DestroyWindow(m_hwnd);
+        if (m_hwnd && IsWindow(m_hwnd)) {
+            zhuziInstance::unregisterTopLevelWindow(m_hwnd);
+            DestroyWindow(m_hwnd);
+        }
         m_hwnd = nullptr;
-        if (m_flag1) zhuziInstance::unregisterTopLevelWindow();
+        if (m_hBgBrush) DeleteObject(m_hBgBrush);
+        m_hBgBrush = nullptr;
     }
 
     void zhuziWindow::show(int cmdShow) {
@@ -387,32 +396,6 @@ namespace zhuzi {
 
     void zhuziWindow::update() {
         if (m_hwnd) UpdateWindow(m_hwnd);
-    }
-
-    void zhuziWindow::Bind(UINT uMsg, std::function<void(WPARAM, LPARAM)> callback) {
-        m_msgHandlers[uMsg] = callback;
-    }
-
-    void zhuziWindow::Bind(UINT uMsg, WPARAM wParam, std::function<void(LPARAM)> callback) {
-        m_msgWParamHandlers[{uMsg, wParam}] = callback;
-    }
-
-    int zhuziWindow::BindChain(UINT uMsg, std::function<bool(WPARAM, LPARAM)> callback) {
-        m_msgChainHandlers[uMsg].push_back(callback);
-        return static_cast<int>(m_msgChainHandlers[uMsg].size()) - 1;
-    }
-
-    void zhuziWindow::Unbind(UINT uMsg) {
-        m_msgHandlers.erase(uMsg);
-    }
-
-    void zhuziWindow::Unbind(UINT uMsg, WPARAM wParam) {
-        m_msgWParamHandlers.erase({ uMsg, wParam });
-    }
-
-    int zhuziWindow::getNextControlId() {
-        static int counter = 0;
-        return 1000 + counter++;
     }
 
     void zhuziWindow::setIcon(const zhuziString& filename) {
@@ -432,15 +415,75 @@ namespace zhuzi {
         }
     }
 
+    void zhuziWindow::setBgColor(COLORREF color) {
+        if (m_hBgBrush) DeleteObject(m_hBgBrush);
+        m_hBgBrush = CreateSolidBrush(color);
+        if (m_hwnd) InvalidateRect(m_hwnd, nullptr, TRUE);
+    }
+
+    void zhuziWindow::setWindowRgn(zhuziRgn& rgn, bool bRedraw) {
+        if (m_hwnd) ::SetWindowRgn(m_hwnd, rgn.release(), bRedraw ? TRUE : FALSE);
+    }
+
+    void zhuziWindow::setWindowRgn(HRGN hRgn, bool bRedraw) {
+        if (m_hwnd && hRgn) ::SetWindowRgn(m_hwnd, hRgn, bRedraw ? TRUE : FALSE);
+    }
+
+    void zhuziWindow::clearWindowRgn(bool bRedraw) {
+        if (m_hwnd) ::SetWindowRgn(m_hwnd, nullptr, bRedraw ? TRUE : FALSE);
+    }
+
     void zhuziWindow::onParentResize(int parentWidth, int parentHeight) {
         if (m_hwnd) {
             HWND child = GetWindow(m_hwnd, GW_CHILD);
             while (child) {
                 zhuziControl* ctrl = (zhuziControl*)GetWindowLongPtrW(child, GWLP_USERDATA);
-                if (ctrl) ctrl->onParentResize(parentWidth, parentHeight);
+                if (ctrl) {
+                    RECT rc;
+                    GetClientRect(m_hwnd, &rc);
+                    ctrl->onParentResize(rc.right - rc.left, rc.bottom - rc.top);
+                }
                 child = GetWindow(child, GW_HWNDNEXT);
             }
         }
+    }
+
+    // ----- 新事件绑定实现 -----
+    int zhuziWindow::Bind(UINT msg, std::function<bool(zhuziMessage&)> handler) {
+        int id = m_nextHandlerId++;
+        m_handlers[msg].push_back({ id, std::move(handler) });
+        return id;
+    }
+
+    void zhuziWindow::Bind(UINT msg, WPARAM wParam, std::function<bool(zhuziMessage&)> handler) {
+        int id = m_nextHandlerId++;
+        m_exactHandlers[{msg, wParam}] = { id, std::move(handler) };
+    }
+
+    void zhuziWindow::Unbind(int handlerId) {
+        // 从普通处理器中删除
+        for (auto& pair : m_handlers) {
+            auto& vec = pair.second;
+            auto it = std::remove_if(vec.begin(), vec.end(),
+                [handlerId](const Handler& h) { return h.id == handlerId; });
+            if (it != vec.end()) {
+                vec.erase(it, vec.end());
+                break;
+            }
+        }
+        // 从精确处理器中删除
+        for (auto it = m_exactHandlers.begin(); it != m_exactHandlers.end(); ++it) {
+            if (it->second.id == handlerId) {
+                m_exactHandlers.erase(it);
+                break;
+            }
+        }
+    }
+
+    void zhuziWindow::Unbind(UINT msg) {
+        m_handlers.erase(msg);
+        // 注意：不删除精确匹配，因为精确匹配还依赖于 wParam。
+        // 若需删除精确匹配，用户必须调用 Unbind(handlerId) 或手动遍历。
     }
 
     LRESULT CALLBACK zhuziWindow::WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -461,15 +504,15 @@ namespace zhuzi {
     }
 
     LRESULT zhuziWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
+        // 背景擦除
         if (msg == WM_ERASEBKGND) {
             if (m_hBgBrush) {
                 HDC hdc = (HDC)wParam;
                 RECT rc;
                 GetClientRect(m_hwnd, &rc);
                 FillRect(hdc, &rc, m_hBgBrush);
-                return 1;  // 表示已处理背景擦除
+                return 1;
             }
-            // 没有自定义背景，调用默认处理（返回 -1 让系统处理）
             return -1;
         }
 
@@ -482,41 +525,28 @@ namespace zhuzi {
             return 0;
         }
 
-        auto itChain = m_msgChainHandlers.find(msg);
-        if (itChain != m_msgChainHandlers.end()) {
-            for (auto& cb : itChain->second) {
-                if (cb(wParam, lParam)) return 0;
+        // 构造消息结构体
+        zhuziMessage message{ msg, wParam, lParam, 0, false };
+
+        // 1. 精确匹配（按 wParam）
+        auto exactIt = m_exactHandlers.find({ msg, wParam });
+        if (exactIt != m_exactHandlers.end()) {
+            if (exactIt->second.func(message)) {
+                return message.result;
             }
         }
-        auto itExact = m_msgWParamHandlers.find({ msg, wParam });
-        if (itExact != m_msgWParamHandlers.end()) {
-            itExact->second(lParam);
-            return 0;
-        }
-        auto itGeneral = m_msgHandlers.find(msg);
-        if (itGeneral != m_msgHandlers.end()) {
-            itGeneral->second(wParam, lParam);
-            return 0;
-        }
-        // 在 zhuziWindow::handleMessage 中，替换原有的 WM_CTLCOLORSTATIC 处理
-        if (msg == WM_CTLCOLORSTATIC) {
-            HDC hdc = (HDC)wParam;
-            HWND hStatic = (HWND)lParam;
-            zhuziControl* pCtrl = (zhuziControl*)GetWindowLongPtrW(hStatic, GWLP_USERDATA);
-            if (pCtrl) {
-                // 尝试转换为 zhuziFrame
-                if (auto* pFrame = dynamic_cast<zhuziFrame*>(pCtrl)) {
-                    HBRUSH hBrush = pFrame->getBackgroundBrush();
-                    if (hBrush) {
-                        SetBkMode(hdc, TRANSPARENT);
-                        return (LRESULT)hBrush;
-                    }
+
+        // 2. 普通链式处理器
+        auto it = m_handlers.find(msg);
+        if (it != m_handlers.end()) {
+            for (auto& handler : it->second) {
+                if (handler.func(message)) {
+                    return message.result;
                 }
             }
-            // 默认保持透明背景
-            SetBkMode(hdc, TRANSPARENT);
-            return (LRESULT)GetStockObject(NULL_BRUSH);
         }
+
+        // 3. 默认窗口过程处理
         if (msg == WM_SIZE) {
             int width = LOWORD(lParam);
             int height = HIWORD(lParam);
@@ -524,41 +554,11 @@ namespace zhuzi {
             return 0;
         }
         if (msg == WM_NCDESTROY) {
-            if (m_flag1) zhuziInstance::unregisterTopLevelWindow();
+            zhuziInstance::unregisterTopLevelWindow(m_hwnd);
             m_hwnd = nullptr;
             return 0;
         }
-        return -1;
-
-    }
-
-    zhuziFont zhuziControl::getFont() const {
-        if (!m_hwnd) return zhuziFont(L"Microsoft YaHei", 16);
-
-        // 获取当前字体句柄
-        HFONT hFont = (HFONT)SendMessage(m_hwnd, WM_GETFONT, 0, 0);
-        if (!hFont) {
-            // 未设置字体，返回默认字体
-            return zhuziFont(L"Microsoft YaHei", 16);
-        }
-
-        LOGFONTW lf = { 0 };
-        if (GetObjectW(hFont, sizeof(LOGFONTW), &lf) == 0) {
-            return zhuziFont(L"Microsoft YaHei", 16);
-        }
-
-        // 将 lfHeight（逻辑单位）转换为点大小
-        HDC screenDC = GetDC(nullptr);
-        int dpiY = GetDeviceCaps(screenDC, LOGPIXELSY);
-        ReleaseDC(nullptr, screenDC);
-        int pointSize = MulDiv(-lf.lfHeight, 72, dpiY);
-        if (pointSize <= 0) pointSize = 16; // 安全回退
-
-        bool bold = (lf.lfWeight >= FW_BOLD);
-        bool italic = (lf.lfItalic != 0);
-        bool underline = (lf.lfUnderline != 0);
-
-        return zhuziFont(lf.lfFaceName, pointSize, bold, italic, underline);
+        return -1;  // 表示未处理，需要继续 DefWindowProc
     }
 
 } // namespace zhuzi
