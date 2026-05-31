@@ -460,4 +460,118 @@ namespace zhuzi {
         return DefSubclassProc(m_hwnd, msg, wParam, lParam);
     }
 
+    // ---------- RTF 文件流回调 ----------
+    static DWORD CALLBACK StreamInCallback(DWORD_PTR dwCookie, LPBYTE pbBuff, LONG cb, LONG* pcb) {
+        HANDLE hFile = reinterpret_cast<HANDLE>(dwCookie);
+        if (ReadFile(hFile, pbBuff, cb, reinterpret_cast<DWORD*>(pcb), nullptr)) {
+            return 0;
+        }
+        return 1;  // 错误
+    }
+
+    static DWORD CALLBACK StreamOutCallback(DWORD_PTR dwCookie, LPBYTE pbBuff, LONG cb, LONG* pcb) {
+        HANDLE hFile = reinterpret_cast<HANDLE>(dwCookie);
+        if (WriteFile(hFile, pbBuff, cb, reinterpret_cast<DWORD*>(pcb), nullptr)) {
+            return 0;
+        }
+        return 1;  // 错误
+    }
+
+    bool CmEdit::loadRTF(const zhuziString& filePath) {
+        if (!m_hwnd) return false;
+
+        HANDLE hFile = CreateFileW(filePath.c_str(), GENERIC_READ, FILE_SHARE_READ,
+            nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (hFile == INVALID_HANDLE_VALUE) return false;
+
+        EDITSTREAM es = { 0 };
+        es.dwCookie = reinterpret_cast<DWORD_PTR>(hFile);
+        es.pfnCallback = StreamInCallback;
+
+        // 发送 EM_STREAMIN 消息，使用 SF_RTF 标志
+        LRESULT result = SendMessageW(m_hwnd, EM_STREAMIN, SF_RTF, reinterpret_cast<LPARAM>(&es));
+        CloseHandle(hFile);
+
+        // 强制重绘
+        InvalidateRect(m_hwnd, nullptr, TRUE);
+        return (result != 0);
+    }
+
+    bool CmEdit::saveRTF(const zhuziString& filePath) {
+        if (!m_hwnd) return false;
+
+        HANDLE hFile = CreateFileW(filePath.c_str(), GENERIC_WRITE, 0,
+            nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (hFile == INVALID_HANDLE_VALUE) return false;
+
+        EDITSTREAM es = { 0 };
+        es.dwCookie = reinterpret_cast<DWORD_PTR>(hFile);
+        es.pfnCallback = StreamOutCallback;
+
+        LRESULT result = SendMessageW(m_hwnd, EM_STREAMOUT, SF_RTF, reinterpret_cast<LPARAM>(&es));
+        CloseHandle(hFile);
+
+        return (result != 0);
+    }
+
+    // 辅助：将 CHARFORMAT2W 转换为 zhuziFont
+    static zhuziFont CharFormatToFont(const CHARFORMAT2W& cf) {
+        zhuziString faceName = cf.szFaceName;
+        int pointSize = cf.yHeight / 20;   // twips 转 point
+        if (pointSize <= 0) pointSize = 12;
+        bool bold = (cf.dwEffects & CFE_BOLD) != 0;
+        bool italic = (cf.dwEffects & CFE_ITALIC) != 0;
+        bool underline = (cf.dwEffects & CFE_UNDERLINE) != 0;
+        return zhuziFont(faceName, pointSize, bold, italic, underline);
+    }
+
+    // 辅助：将 CHARFORMAT2W 转换为 zhuziColor
+    static zhuziColor CharFormatToColor(const CHARFORMAT2W& cf) {
+        if (cf.dwMask & CFM_COLOR) {
+            return zhuziColor(cf.crTextColor);
+        }
+        return zhuziColor(0, 0, 0);
+    }
+
+    zhuziFont CmEdit::getSelectionFont() const {
+        if (!m_hwnd) return m_defaultFont;
+        CHARFORMAT2W cf;
+        ZeroMemory(&cf, sizeof(cf));
+        cf.cbSize = sizeof(CHARFORMAT2W);
+        cf.dwMask = CFM_FACE | CFM_SIZE | CFM_BOLD | CFM_ITALIC | CFM_UNDERLINE;
+        SendMessageW(m_hwnd, EM_GETCHARFORMAT, SCF_SELECTION, (LPARAM)&cf);
+        if (cf.dwMask & (CFM_FACE | CFM_SIZE)) {
+            return CharFormatToFont(cf);
+        }
+        return m_defaultFont;
+    }
+
+    zhuziFont CmEdit::getRangeFont(int start, int end) const {
+        if (!m_hwnd || start < 0 || end <= start) return m_defaultFont;
+        auto oldSel = getSelection();
+        const_cast<CmEdit*>(this)->setSelection(start, end);
+        zhuziFont result = getSelectionFont();
+        const_cast<CmEdit*>(this)->setSelection(oldSel.first, oldSel.second);
+        return result;
+    }
+
+    zhuziColor CmEdit::getSelectionColor() const {
+        if (!m_hwnd) return zhuziColor(0, 0, 0);
+        CHARFORMAT2W cf;
+        ZeroMemory(&cf, sizeof(cf));
+        cf.cbSize = sizeof(CHARFORMAT2W);
+        cf.dwMask = CFM_COLOR;
+        SendMessageW(m_hwnd, EM_GETCHARFORMAT, SCF_SELECTION, (LPARAM)&cf);
+        return CharFormatToColor(cf);
+    }
+
+    zhuziColor CmEdit::getRangeColor(int start, int end) const {
+        if (!m_hwnd || start < 0 || end <= start) return zhuziColor(0, 0, 0);
+        auto oldSel = getSelection();
+        const_cast<CmEdit*>(this)->setSelection(start, end);
+        zhuziColor result = getSelectionColor();
+        const_cast<CmEdit*>(this)->setSelection(oldSel.first, oldSel.second);
+        return result;
+    }
+
 } // namespace zhuzi

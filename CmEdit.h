@@ -92,6 +92,18 @@ namespace zhuzi {
         void setOnFocus(std::function<void(bool)> callback);
         void setOnCharInput(std::function<bool(wchar_t)> callback);
 
+        bool loadRTF(const zhuziString& filePath);
+        bool saveRTF(const zhuziString& filePath);
+
+        // 获取当前选中区域第一个字符的字体（若没有选中，则获取光标处字体）
+        zhuziFont getSelectionFont() const;
+        // 获取指定范围内第一个字符的字体
+        zhuziFont getRangeFont(int start, int end) const;
+
+        // 获取当前选中文本的颜色
+        zhuziColor getSelectionColor() const;
+        // 获取指定范围内第一个字符的颜色
+        zhuziColor getRangeColor(int start, int end) const;
     protected:
         static LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
             UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
