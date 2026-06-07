@@ -5,6 +5,14 @@
 #include "zhuziCommctrl.h"
 
 namespace zhuzi {
+    zhuziWindow* findParentWindow(zhuziControl* ctrl) {
+        while (ctrl) {
+            if (auto* w = dynamic_cast<zhuziWindow*>(ctrl)) return w;
+            ctrl = ctrl->getParent();
+        }
+        return nullptr;
+    }
+
     void PremultiplyAlphaBits(void* bits, int width, int height) {
         // 假设 32 位 BGRA 格式（Windows DIB 默认）
         BYTE* p = (BYTE*)bits;
@@ -48,7 +56,7 @@ namespace zhuzi {
 
     zhuziControl::zhuziControl(zhuziControl* parent)
         : m_layoutType(LayoutType::None), m_hwnd(nullptr), m_id(-1),
-        m_parent(parent) {
+        m_parent(parent), m_useD2D(0), m_isCustomDraw(0) {
         m_layoutParam[0] = m_layoutParam[1] = m_layoutParam[2] = m_layoutParam[3] = 0;
     }
 
@@ -105,7 +113,7 @@ namespace zhuzi {
             return false;
         }
         SetWindowLongPtrW(m_hwnd, GWLP_USERDATA, (LONG_PTR)this);
-        if(doSubClass) SetWindowSubclass(m_hwnd, ControlWndProc, 0, (DWORD_PTR)this);
+        if (doSubClass) SetWindowSubclass(m_hwnd, ControlWndProc, 0, (DWORD_PTR)this);
         if (m_parent) {
             RECT rc; GetClientRect(m_parent->getHandle(), &rc);
             applyLayout(rc.right - rc.left, rc.bottom - rc.top);
@@ -145,12 +153,13 @@ namespace zhuzi {
     }
 
     void zhuziControl::destroy() {
-        if (m_hwnd) {
+        if (m_hwnd && IsWindow(m_hwnd)) {
+            RemoveWindowSubclass(m_hwnd, ControlWndProc, 0);
             DestroyWindow(m_hwnd);
-            m_hwnd = nullptr;
-            if (m_id >= 2000 && m_id <= 2999) releaseId(m_id);
-            m_id = -1;
         }
+        m_hwnd = nullptr;
+        if (m_id >= 2000 && m_id <= 2999) releaseId(m_id);
+        m_id = -1;
     }
 
     void zhuziControl::setText(const zhuziString& text) {
@@ -232,27 +241,34 @@ namespace zhuzi {
         return SendMessageW(m_hwnd, msg, wParam, lParam);
     }
 
-    void zhuziControl::setWindowTheme(const zhuziString themeName){
-		if (m_hwnd) SetWindowTheme(m_hwnd, themeName.c_str(), nullptr);
+    void zhuziControl::setWindowTheme(const zhuziString themeName) {
+        if (m_hwnd) SetWindowTheme(m_hwnd, themeName.c_str(), nullptr);
     }
 
     LRESULT CALLBACK zhuziControl::ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData) {
         zhuziControl* pThis = (zhuziControl*)dwRefData;
-        if (!pThis) return DefSubclassProc(hwnd, msg, wParam, lParam);
+        if (!pThis || pThis->m_hwnd != hwnd) {
+            RemoveWindowSubclass(hwnd, ControlWndProc, uIdSubclass);
+            return DefSubclassProc(hwnd, msg, wParam, lParam);
+        }
+
+        if (msg == WM_NCDESTROY) {
+            RemoveWindowSubclass(hwnd, ControlWndProc, uIdSubclass);
+            pThis->m_hwnd = nullptr;
+            return DefSubclassProc(hwnd, msg, wParam, lParam);
+        }
 
         if (msg == WM_KEYDOWN) {
             SendMessage(GetParent(hwnd), msg, wParam, lParam);
         }
 
-        // 如果不是自定义绘制控件，直接放行所有消息
         if (!pThis->m_isCustomDraw) {
             return DefSubclassProc(hwnd, msg, wParam, lParam);
         }
 
-        // 以下仅对自定义控件生效
         switch (msg) {
         case WM_ERASEBKGND:
-            return 1;  // 阻止擦除背景，减少闪烁
+            return 1;
 
         case WM_PAINT: {
             PAINTSTRUCT ps;
@@ -263,44 +279,52 @@ namespace zhuzi {
                 int width = rcClient.right - rcClient.left;
                 int height = rcClient.bottom - rcClient.top;
                 if (width > 0 && height > 0) {
-                    // 根据是否需要透明背景选择绘制方式
-                    if (pThis->getTransparent()) {
-                        HDC memDC = CreateCompatibleDC(hdc);
-                        BITMAPINFO bmi = { 0 };
-                        bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-                        bmi.bmiHeader.biWidth = width;
-                        bmi.bmiHeader.biHeight = -height;
-                        bmi.bmiHeader.biPlanes = 1;
-                        bmi.bmiHeader.biBitCount = 32;
-                        bmi.bmiHeader.biCompression = BI_RGB;
-                        VOID* pvBits = nullptr;
-                        HBITMAP memBitmap = CreateDIBSection(memDC, &bmi, DIB_RGB_COLORS, &pvBits, nullptr, 0);
-                        if (memBitmap && pvBits) {
-                            HBITMAP oldBitmap = (HBITMAP)SelectObject(memDC, memBitmap);
-                            memset(pvBits, 0, width * height * 4);   // 全透明
-                            zhuziPaint paint(memDC, rcClient);
-                            pThis->onPaint(paint);
-                            // ========= 新增预乘 =========
-                            PremultiplyAlphaBits(pvBits, width, height);
-                            // ===========================
-                            BLENDFUNCTION blend = { AC_SRC_OVER, 0, 255, AC_SRC_ALPHA };
-                            AlphaBlend(hdc, 0, 0, width, height, memDC, 0, 0, width, height, blend);
-                            SelectObject(memDC, oldBitmap);
-                            DeleteObject(memBitmap);
+                    if (pThis->m_useD2D) {
+                        // D2D 硬件加速分支
+                        zhuziD2DRenderTarget d2d(hwnd);
+                        if (d2d.beginDraw()) {
+                            d2d.clear(RGBA(0, 0, 0, 0));
+                            pThis->onPaintD2D(d2d);
+                            d2d.endDraw();
                         }
-                        DeleteDC(memDC);
                     }
                     else {
-                        // ===== 普通双缓冲方式：兼容原行为 =====
-                        HDC memDC = CreateCompatibleDC(hdc);
-                        HBITMAP memBitmap = CreateCompatibleBitmap(hdc, width, height);
-                        HBITMAP oldBitmap = (HBITMAP)SelectObject(memDC, memBitmap);
-                        zhuziPaint paint(memDC, rcClient);
-                        pThis->onPaint(paint);
-                        BitBlt(hdc, 0, 0, width, height, memDC, 0, 0, SRCCOPY);
-                        SelectObject(memDC, oldBitmap);
-                        DeleteObject(memBitmap);
-                        DeleteDC(memDC);
+                        // 原有的 GDI+ 绘图分支（保持不变）
+                        if (pThis->getTransparent()) {
+                            HDC memDC = CreateCompatibleDC(hdc);
+                            BITMAPINFO bmi = { 0 };
+                            bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+                            bmi.bmiHeader.biWidth = width;
+                            bmi.bmiHeader.biHeight = -height;
+                            bmi.bmiHeader.biPlanes = 1;
+                            bmi.bmiHeader.biBitCount = 32;
+                            bmi.bmiHeader.biCompression = BI_RGB;
+                            VOID* pvBits = nullptr;
+                            HBITMAP memBitmap = CreateDIBSection(memDC, &bmi, DIB_RGB_COLORS, &pvBits, nullptr, 0);
+                            if (memBitmap && pvBits) {
+                                HBITMAP oldBitmap = (HBITMAP)SelectObject(memDC, memBitmap);
+                                memset(pvBits, 0, width * height * 4);
+                                zhuziPaint paint(memDC, rcClient);
+                                pThis->onPaint(paint);
+                                PremultiplyAlphaBits(pvBits, width, height);
+                                BLENDFUNCTION blend = { AC_SRC_OVER, 0, 255, AC_SRC_ALPHA };
+                                AlphaBlend(hdc, 0, 0, width, height, memDC, 0, 0, width, height, blend);
+                                SelectObject(memDC, oldBitmap);
+                                DeleteObject(memBitmap);
+                            }
+                            DeleteDC(memDC);
+                        }
+                        else {
+                            HDC memDC = CreateCompatibleDC(hdc);
+                            HBITMAP memBitmap = CreateCompatibleBitmap(hdc, width, height);
+                            HBITMAP oldBitmap = (HBITMAP)SelectObject(memDC, memBitmap);
+                            zhuziPaint paint(memDC, rcClient);
+                            pThis->onPaint(paint);
+                            BitBlt(hdc, 0, 0, width, height, memDC, 0, 0, SRCCOPY);
+                            SelectObject(memDC, oldBitmap);
+                            DeleteObject(memBitmap);
+                            DeleteDC(memDC);
+                        }
                     }
                 }
                 EndPaint(hwnd, &ps);
@@ -331,7 +355,6 @@ namespace zhuzi {
         if (m_hwnd && IsWindow(m_hwnd)) {
             ::SetFocus(m_hwnd);
         }
-        
     }
 
     // ==================== zhuziWindow ====================

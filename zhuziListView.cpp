@@ -202,14 +202,53 @@ namespace zhuzi {
         return FALSE;
     }
 
-    // 视图与样式实现
     void zhuziListView::setView(DWORD view) {
         if (m_hwnd) {
-            ::SendMessageW(m_hwnd, LVM_SETVIEW, (WPARAM)view, 0);
+            // 特殊处理平铺视图：需要先从图标视图转换
+            if (view == LV_VIEW_TILE) {
+                // 获取当前视图（可选）
+                DWORD curView = (DWORD)SendMessageW(m_hwnd, LVM_GETVIEW, 0, 0);
+                // 如果不是图标视图，则先切换到图标视图
+                if (curView != LV_VIEW_ICON) {
+                    // 切换到图标视图
+                    SendMessageW(m_hwnd, LVM_SETVIEW, LV_VIEW_ICON, 0);
+                    // 更新窗口样式为 LVS_ICON
+                    LONG_PTR style = GetWindowLongPtrW(m_hwnd, GWL_STYLE);
+                    style = (style & ~LVS_TYPEMASK) | LVS_ICON;
+                    SetWindowLongPtrW(m_hwnd, GWL_STYLE, style);
+                    // 强制重绘并处理所有待处理的绘制消息
+                    InvalidateRect(m_hwnd, nullptr, TRUE);
+                    UpdateWindow(m_hwnd);
+                    // 排干 WM_PAINT 消息
+                    MSG msg;
+                    while (PeekMessage(&msg, m_hwnd, WM_PAINT, WM_PAINT, PM_REMOVE)) {
+                        DispatchMessage(&msg);
+                    }
+                }
+                // 现在正式切换到平铺视图
+                SendMessageW(m_hwnd, LVM_SETVIEW, LV_VIEW_TILE, 0);
+                // 平铺视图下样式保持为 LVS_ICON，无需修改
+                InvalidateRect(m_hwnd, nullptr, TRUE);
+                UpdateWindow(m_hwnd);
+                return;
+            }
+
+            // 其他视图的正常切换
+            SendMessageW(m_hwnd, LVM_SETVIEW, (WPARAM)view, 0);
             LONG_PTR style = GetWindowLongPtrW(m_hwnd, GWL_STYLE);
             LONG_PTR typemask = static_cast<LONG_PTR>(LVS_TYPEMASK);
-            style = (style & ~typemask) | (static_cast<LONG_PTR>(view) & typemask);
+            style &= ~typemask;
+            // 注意：将 LV_VIEW_* 转换为 LVS_* 样式（低4位兼容）
+            style |= (static_cast<LONG_PTR>(view) & typemask);
             SetWindowLongPtrW(m_hwnd, GWL_STYLE, style);
+
+            // 修复大图标/小图标视图下的图标空位问题
+            if (view == LV_VIEW_ICON || view == LV_VIEW_SMALLICON) {
+                SendMessageW(m_hwnd, LVM_ARRANGE, LVA_DEFAULT, 0);
+            }
+
+            InvalidateRect(m_hwnd, nullptr, TRUE);
+            UpdateWindow(m_hwnd);
         }
         else {
             m_pendingView = view;
@@ -557,8 +596,8 @@ namespace zhuzi {
         // 设置父窗口（重要）
         control->setParent(this);
         if (!control->getHandle()) {
-            // 未创建：调用 create，使用临时位置 (0,0,0,0)
-            if (!control->create(0, 0, 0, 0, WS_CHILD | WS_VISIBLE)) {
+            // 未创建：调用 create，使用临时位置 (0,0,100,100)
+            if (!control->create(0, 0, 100,100)) {
                 return false;
             }
             // 确保父窗口为 ListView 自身

@@ -10,73 +10,78 @@
 #include "zhuziFont.h"
 #include "zhuziPaint.h"
 #include "zhuziRgn.h"
+#include "zhuziD2D.h"
 #include <uxtheme.h>
 #pragma comment(lib, "uxtheme.lib")
 
-//===============================================
+// 在文件开头（namespace zhuzi 之前）添加两个宏
 #define _CONTAINER_MSGHANDLER_IF \
 if (msg == WM_COMMAND || msg == WM_NOTIFY) {\
-HWND hParent = GetParent(hwnd);\
-if (hParent) {\
-SendMessageW(hParent, msg, wParam, lParam);\
-return 0;}\
-}\
-else if (msg == WM_CTLCOLORSTATIC) {\
-HDC hdc = (HDC)wParam;\
-HWND hChild = (HWND)lParam;\
-zhuziControl* pChildCtrl = (zhuziControl*)GetWindowLongPtrW(hChild, GWLP_USERDATA);\
-if (pChildCtrl) {\
-    if (auto* pFrame = dynamic_cast<zhuziFrame*>(pChildCtrl)) {\
-        HBRUSH hBrush = pFrame->getBackgroundBrush();\
-        if (hBrush) {\
-            SetBkMode(hdc, TRANSPARENT);\
-            return (LRESULT)hBrush;\
-        }\
+    HWND hParent = GetParent(hwnd);\
+    if (hParent) {\
+        SendMessageW(hParent, msg, wParam, lParam);\
+        return 0;\
     }\
 }\
-SetBkMode(hdc, TRANSPARENT);\
-return (LRESULT)GetStockObject(NULL_BRUSH);\
+else if (msg == WM_CTLCOLORSTATIC) {\
+    HDC hdc = (HDC)wParam;\
+    HWND hChild = (HWND)lParam;\
+    zhuziControl* pChildCtrl = (zhuziControl*)GetWindowLongPtrW(hChild, GWLP_USERDATA);\
+    if (pChildCtrl) {\
+        if (auto* pFrame = dynamic_cast<zhuziFrame*>(pChildCtrl)) {\
+            HBRUSH hBrush = pFrame->getBackgroundBrush();\
+            if (hBrush) {\
+                SetBkMode(hdc, TRANSPARENT);\
+                return (LRESULT)hBrush;\
+            }\
+        }\
+    }\
+    SetBkMode(hdc, TRANSPARENT);\
+    return (LRESULT)GetStockObject(NULL_BRUSH);\
 }
 
 #define _CONTAINER_MSGHANDLER_IF_N \
 if (msg == WM_COMMAND || msg == WM_NOTIFY) {\
-HWND hParent = GetParent(hwnd);\
-if (hParent) {\
-SendMessageW(hParent, msg, wParam, lParam);}\
-}\
-else if (msg == WM_CTLCOLORSTATIC) {\
-HDC hdc = (HDC)wParam;\
-HWND hChild = (HWND)lParam;\
-zhuziControl* pChildCtrl = (zhuziControl*)GetWindowLongPtrW(hChild, GWLP_USERDATA);\
-if (pChildCtrl) {\
-    if (auto* pFrame = dynamic_cast<zhuziFrame*>(pChildCtrl)) {\
-        HBRUSH hBrush = pFrame->getBackgroundBrush();\
-        if (hBrush) {\
-            SetBkMode(hdc, TRANSPARENT);\
-            return (LRESULT)hBrush;\
-        }\
+    HWND hParent = GetParent(hwnd);\
+    if (hParent) {\
+        SendMessageW(hParent, msg, wParam, lParam);\
     }\
 }\
-SetBkMode(hdc, TRANSPARENT);\
-return (LRESULT)GetStockObject(NULL_BRUSH);\
+else if (msg == WM_CTLCOLORSTATIC) {\
+    HDC hdc = (HDC)wParam;\
+    HWND hChild = (HWND)lParam;\
+    zhuziControl* pChildCtrl = (zhuziControl*)GetWindowLongPtrW(hChild, GWLP_USERDATA);\
+    if (pChildCtrl) {\
+        if (auto* pFrame = dynamic_cast<zhuziFrame*>(pChildCtrl)) {\
+            HBRUSH hBrush = pFrame->getBackgroundBrush();\
+            if (hBrush) {\
+                SetBkMode(hdc, TRANSPARENT);\
+                return (LRESULT)hBrush;\
+            }\
+        }\
+    }\
+    SetBkMode(hdc, TRANSPARENT);\
+    return (LRESULT)GetStockObject(NULL_BRUSH);\
 }
-//===============================================
+
+#ifndef RGBA
+#define RGBA(r,g,b,a) ((COLORREF)(((a)&0xFF)<<24) | ((r)&0xFF) | (((g)&0xFF)<<8) | (((b)&0xFF)<<16))
+#endif
 
 namespace zhuzi {
 
-    // 前向声明
-    class zhuziWindow;
-
-    // 消息结构体
     struct zhuziMessage {
         UINT msg;
         WPARAM wParam;
         LPARAM lParam;
-        LRESULT result;     // 输出结果
-        bool handled;       // 内部使用，暂不暴露
+        LRESULT result;
+        bool handled;
     };
 
-    // ==================== zhuziControl 基类 ====================
+    class zhuziWindow;
+
+    zhuziWindow* findParentWindow(zhuziControl* ctrl);
+
     class zhuziControl {
     public:
         zhuziControl(zhuziControl* parent = nullptr);
@@ -111,17 +116,20 @@ namespace zhuzi {
         LRESULT SendWindowMessage(UINT msg, WPARAM wParam = NULL, LPARAM lParam = NULL) const;
         void setWindowTheme(const zhuziString themeName);
         virtual void onPaint(zhuziPaint& paint) {}
+        virtual void onPaintD2D(zhuziD2DRenderTarget& d2d) {}
         virtual void onLButtonUp(int x, int y) {}
         virtual void onRButtonUp(int x, int y) {}
         virtual void onMouseMove(int x, int y) {}
         virtual void onMouseLeave() {}
         void Invalidate(bool bErase = 1) { if (m_hwnd) InvalidateRect(m_hwnd, nullptr, bErase); }
 
+        void setUseD2D(bool useD2D) { m_useD2D = useD2D; }
+        bool isUsingD2D() const { return m_useD2D; }
+
         zhuziControl(const zhuziControl&) = delete;
         zhuziControl& operator=(const zhuziControl&) = delete;
         zhuziControl(zhuziControl&&) = default;
         zhuziControl& operator=(zhuziControl&&) = default;
-
         void setCustomLayout() { m_layoutType = LayoutType::Custom; }
 
     protected:
@@ -137,8 +145,9 @@ namespace zhuzi {
         friend class zhuziWindow;
 
         short int m_id;
-        uint8_t m_isCustomDraw = false;
         LayoutType m_layoutType;
+        uint8_t m_isCustomDraw : 1;
+        uint8_t m_useD2D : 1;    // 使用 D2D 标志，构造时初始化为 0
         bool m_flag1 = 0;
         int8_t m_flag2 = 0;
         int16_t m_flag3 = 0;
@@ -152,16 +161,14 @@ namespace zhuzi {
         void initCreate(LayoutType type);
     };
 
-    // ==================== zhuziWindow 类（重构后） ====================
+    // zhuziWindow 类（保持原有定义，此处仅作占位，实际项目中请保留完整实现）
     class zhuziWindow : public zhuziControl {
     public:
         zhuziWindow();
         virtual ~zhuziWindow();
-
         bool create(const zhuziString& title, int x, int y, int width, int height, DWORD style = WS_OVERLAPPEDWINDOW);
         virtual bool onCreate(DWORD style) override;
         virtual void destroy() override;
-
         void show(int cmdShow = SW_SHOW);
         void update();
         void setIcon(const zhuziString& filename);
@@ -176,45 +183,28 @@ namespace zhuzi {
         void clearWindowRgn(bool bRedraw = true);
         virtual void onParentResize(int parentWidth, int parentHeight) override;
 
-        // ----- 新的事件绑定接口（Bind/Unbind）-----
-        // 添加普通消息处理器（链式），返回 handler ID
         int Bind(UINT msg, std::function<bool(zhuziMessage&)> handler);
-        // 添加精确匹配（按 wParam 过滤）的处理器（只能有一个，会覆盖之前的）
         void Bind(UINT msg, WPARAM wParam, std::function<bool(zhuziMessage&)> handler);
-        // 移除指定 ID 的处理器
         void Unbind(int handlerId);
-        // 移除指定消息的所有普通处理器（不包括精确匹配）
         void Unbind(UINT msg);
 
     private:
         static bool RegisterWindowClass();
         static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
         LRESULT handleMessage(UINT msg, WPARAM wParam, LPARAM lParam);
-
         static const wchar_t* WINDOW_CLASS_NAME;
         static bool s_classRegistered;
-
         zhuziString m_windowTitle;
         HBRUSH m_hBgBrush;
         short m_minWidth, m_minHeight, m_maxWidth, m_maxHeight;
 
-        // 事件存储
         struct Handler {
             int id;
             std::function<bool(zhuziMessage&)> func;
         };
-        std::map<UINT, std::vector<Handler>> m_handlers;                    // 普通链式处理器
-        std::map<std::pair<UINT, WPARAM>, Handler> m_exactHandlers;        // 精确处理器
-        int m_nextHandlerId;      // 用于生成唯一 ID
+        std::map<UINT, std::vector<Handler>> m_handlers;
+        std::map<std::pair<UINT, WPARAM>, Handler> m_exactHandlers;
+        int m_nextHandlerId;
     };
-
-    // 辅助函数：查找祖先窗口中的 zhuziWindow
-    inline zhuziWindow* findParentWindow(zhuziControl* ctrl) {
-        while (ctrl) {
-            if (auto* w = dynamic_cast<zhuziWindow*>(ctrl)) return w;
-            ctrl = ctrl->getParent();
-        }
-        return nullptr;
-    }
 
 } // namespace zhuzi

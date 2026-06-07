@@ -1,3 +1,4 @@
+#define _ZHUZI_LAYOUT_NO_WARNINGS
 #include "zhuziLayout.h"
 #include "zhuziInstance.h"
 #include <windowsx.h>
@@ -6,9 +7,14 @@
 
 namespace zhuzi {
 
+    // 修复：增加对 pThis 有效性的检查
     static LRESULT CALLBACK LayoutWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData) {
         zhuziControl* pThis = (zhuziControl*)dwRefData;
-        if (!pThis) return DefSubclassProc(hwnd, msg, wParam, lParam);
+        if (!pThis || pThis->getHandle() != hwnd) {
+            // 控件已销毁或指针无效，移除子类化
+            RemoveWindowSubclass(hwnd, LayoutWndProc, uIdSubclass);
+            return DefSubclassProc(hwnd, msg, wParam, lParam);
+        }
         _CONTAINER_MSGHANDLER_IF_N;
         return DefSubclassProc(hwnd, msg, wParam, lParam);
     }
@@ -21,19 +27,22 @@ namespace zhuzi {
     }
 
     zhuziLayout::~zhuziLayout() {
-        clear();
-        destroy();
+        destroy();  // 会调用 clear 并销毁窗口
+    }
+
+    void zhuziLayout::destroy() {
+        // 清空子控件列表，避免在窗口销毁后访问
+        m_items.clear();
+        zhuziControl::destroy();
     }
 
     void zhuziLayout::addControl(zhuziControl* control, int stretch) {
         if (!control) return;
         if (stretch <= 0) stretch = 1;
 
-        // 确保控件已创建且使用 Custom 布局
         ensureControlCreated(control);
         control->setCustomLayout();
 
-        // 重设父窗口为当前布局容器
         control->setParent(this);
         if (m_hwnd && control->getHandle()) {
             SetParent(control->getHandle(), m_hwnd);
@@ -84,7 +93,7 @@ namespace zhuzi {
 
     void zhuziLayout::ensureControlCreated(zhuziControl* control) {
         if (!control->getHandle()) {
-            control->create(0, 0, m_defaultWidth, m_defaultHeight, WS_CHILD | WS_VISIBLE);
+            control->create(0, 0, m_defaultWidth, m_defaultHeight);
         }
     }
 
@@ -118,7 +127,6 @@ namespace zhuzi {
         if (!createControl(L"STATIC", 0, 0, 0, 0, finalStyle, WS_EX_TRANSPARENT, true))
             return false;
         SetWindowSubclass(m_hwnd, LayoutWndProc, 0, (DWORD_PTR)this);
-        // 让布局容器填满父窗口客户区
         if (m_parent) setAnchor(0, 0, 0, 0);
         return true;
     }
@@ -132,11 +140,9 @@ namespace zhuzi {
         int totalHeight = rcClient.bottom - rcClient.top - m_marginTop - m_marginBottom;
         int y = m_marginTop;
 
-        // 计算总拉伸因子
         int totalStretch = 0;
         for (const auto& item : m_items) totalStretch += item.stretch;
 
-        // 总宽度减去间距后，按拉伸因子分配每个控件的宽度
         int totalSpacing = (int)m_items.size() - 1;
         int availableWidth = totalWidth - totalSpacing * m_spacing;
         if (availableWidth < 0) availableWidth = 0;
@@ -145,12 +151,12 @@ namespace zhuzi {
         for (size_t i = 0; i < m_items.size(); ++i) {
             auto& item = m_items[i];
             zhuziControl* ctrl = item.control;
-            int stretch = item.stretch;
+            if (!ctrl || !ctrl->getHandle()) continue;   // 安全跳过
 
+            int stretch = item.stretch;
             int width = (totalStretch > 0) ? (availableWidth * stretch) / totalStretch : availableWidth / (int)m_items.size();
             if (width < 0) width = 0;
 
-            // 高度填满容器
             int height = totalHeight;
             if (height < 0) height = m_defaultHeight;
 
@@ -192,16 +198,16 @@ namespace zhuzi {
         for (size_t i = 0; i < m_items.size(); ++i) {
             auto& item = m_items[i];
             zhuziControl* ctrl = item.control;
-            int stretch = item.stretch;
+            if (!ctrl || !ctrl->getHandle()) continue;
 
+            int stretch = item.stretch;
             int height = (totalStretch > 0) ? (availableHeight * stretch) / totalStretch : availableHeight / (int)m_items.size();
             if (height < 0) height = 0;
 
-            // 宽度填满容器
             int width = totalWidth;
             if (width < 0) width = m_defaultWidth;
 
-            SetWindowPos(ctrl->getHandle(), nullptr, x, y, width, height, SWP_NOZORDER);
+			ctrl->setGeometry(x, y, width, height);
             y += height + m_spacing;
         }
     }

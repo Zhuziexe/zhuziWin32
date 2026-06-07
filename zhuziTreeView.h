@@ -118,10 +118,10 @@ namespace zhuzi {
         DWORD m_pendingStyleValue;
         DWORD m_pendingExStyle;
         struct PackedFlags {
-            unsigned hasPendingStyle : 1;
-            unsigned hasPendingExStyle : 1;
-            unsigned isSubclassed : 1;
-            unsigned notifyRegistered : 1;
+            uint8_t hasPendingStyle : 1;
+            uint8_t hasPendingExStyle : 1;
+            uint8_t isSubclassed : 1;
+            uint8_t notifyRegistered : 1;
         };
         PackedFlags m_flags;
 

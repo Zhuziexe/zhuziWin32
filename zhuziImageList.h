@@ -4,13 +4,12 @@
 #include <vector>
 #include <functional>
 #include <memory>
-
-namespace Gdiplus {
-    class Image;
-    class Bitmap;
-}
+#include <gdiplus.h>          // 必须包含，用于 Gdiplus::Image
+#include "zhuziString.h"
 
 namespace zhuzi {
+
+    class zhuziImage;  // 前向声明
 
     class zhuziImageList {
     public:
@@ -62,10 +61,11 @@ namespace zhuzi {
         // 添加图像（自动缩放）
         int add(HBITMAP hBitmap, HBITMAP hMask = nullptr);
         int add(HICON hIcon);
+		int add(const zhuziImage& image);
+        int addFromMemory(const void* data, size_t size);
         int addFromFile(const wchar_t* filePath);
         int addFromResource(int resourceId, const wchar_t* resourceType = L"PNG");
-        int addFromMemory(const void* data, size_t size);
-        int addFromGdiplusImage(Gdiplus::Image* image);
+        int addFromGdiplusImage(Gdiplus::Image* image);   // 保留兼容性
         int addSolidColor(int width, int height, COLORREF color);
 
         bool insert(int index, HBITMAP hBitmap, HBITMAP hMask = nullptr);
@@ -95,11 +95,9 @@ namespace zhuzi {
         HIMAGELIST m_hImageList;
         int m_width, m_height;
 
+
         // 内部缩放辅助
         HBITMAP scaleBitmap(HBITMAP hSrc, int targetW, int targetH) const;
-        Gdiplus::Bitmap* scaleGdiplusImage(Gdiplus::Image* pImage, int targetW, int targetH) const;
-
-        static HBITMAP bitmapFromGdiplusImage(Gdiplus::Image* image);
     };
 
 } // namespace zhuzi

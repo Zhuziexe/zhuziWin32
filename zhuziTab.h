@@ -55,7 +55,7 @@ namespace zhuzi {
         bool setCurSel(int index);
         int getPageCount() const;
 
-        void setImageList(zhuziImageList _iml);
+        void setImageList(zhuziImageList* _iml);
         void setImageList(HIMAGELIST himl);
         HIMAGELIST getImageList() const;
 

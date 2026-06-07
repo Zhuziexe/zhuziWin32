@@ -390,10 +390,10 @@ namespace zhuzi {
         return (int)m_pages.size();
     }
 
-    void zhuziTab::setImageList(zhuziImageList iml) {
+    void zhuziTab::setImageList(zhuziImageList* iml) {
         if (m_hwnd) {
             // 假设 zhuziImageList 提供了 getHandle() 方法返回 HIMAGELIST
-            TabCtrl_SetImageList(m_hwnd, iml.getHandle());
+            TabCtrl_SetImageList(m_hwnd, iml->getHandle());
         }
     }
 

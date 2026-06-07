@@ -37,9 +37,9 @@
 #include "zhuziTreeView.h"
 #include "zhuziUpDownEdit.h"
 #include "zhuziComboBoxEx.h"
-#include "zhuziLayout.h"
 #include "zhuziCommDlg.h"
 #include "CmEdit.h"
+#include "zhuziImageButton.h"
 
 #endif // !NO_ZHUZICONTROLS_INCLUDES
 

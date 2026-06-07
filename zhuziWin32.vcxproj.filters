@@ -111,6 +111,15 @@
     <ClCompile Include="CmEdit.cpp">
       <Filter>源文件\通用控件</Filter>
     </ClCompile>
+    <ClCompile Include="zhuziD2D.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="zhuziImage.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="zhuziImageButton.cpp">
+      <Filter>源文件\通用控件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="zhuziInstance.h">
@@ -220,6 +229,15 @@
     </ClInclude>
     <ClInclude Include="CmEdit.h">
       <Filter>头文件\通用控件</Filter>
+    </ClInclude>
+    <ClInclude Include="zhuziD2D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="zhuziImageButton.h">
+      <Filter>头文件\通用控件</Filter>
+    </ClInclude>
+    <ClInclude Include="zhuziImage.h">
+      <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
