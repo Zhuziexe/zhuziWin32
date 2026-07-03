@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include <windows.h>
 #include <gdiplus.h>
 #include "zhuziString.h"
@@ -12,8 +12,8 @@ namespace zhuzi {
 
     class zhuziColor {
     public:
-        // ¹¹Ôì
-        zhuziColor() : m_color(RGB(0, 0, 0)) {}
+        // ï¿½ï¿½ï¿½ï¿½
+        zhuziColor() : m_color(RGB(0, 0, 0)), m_alpha(0) {}
         zhuziColor(BYTE r, BYTE g, BYTE b, BYTE a = 255)
             : m_color(RGB(r, g, b)), m_alpha(a) {
         }
@@ -25,28 +25,28 @@ namespace zhuzi {
             m_alpha(color.GetA()) {
         }
 
-        // ×ª»»Îª Gdiplus::Color£¨ÓÃÓÚ»æÍ¼£©
+        // ×ªï¿½ï¿½Îª Gdiplus::Colorï¿½ï¿½ï¿½ï¿½ï¿½Ú»ï¿½Í¼ï¿½ï¿½
         Gdiplus::Color toGdiplusColor() const {
             return Gdiplus::Color(m_alpha, GetR(), GetG(), GetB());
         }
         operator Gdiplus::Color() const { return toGdiplusColor(); }
 
-        // ×ª»»Îª COLORREF
+        // ×ªï¿½ï¿½Îª COLORREF
         COLORREF toCOLORREF() const { return m_color; }
         operator COLORREF() const { return m_color; }
 
-        // »ñÈ¡ RGBA ·ÖÁ¿
+        // ï¿½ï¿½È¡ RGBA ï¿½ï¿½ï¿½ï¿½
         BYTE GetR() const { return GetRValue(m_color); }
         BYTE GetG() const { return GetGValue(m_color); }
         BYTE GetB() const { return GetBValue(m_color); }
         BYTE GetA() const { return m_alpha; }
 
-        // ÉèÖÃ alpha£¨Í¸Ã÷¶È£©
+        // ï¿½ï¿½ï¿½ï¿½ alphaï¿½ï¿½Í¸ï¿½ï¿½ï¿½È£ï¿½
         void setAlpha(BYTE a) { m_alpha = a; }
 
     private:
         COLORREF m_color;
-        BYTE m_alpha; // Í¸Ã÷¶È 0-255
+        BYTE m_alpha; // Í¸ï¿½ï¿½ï¿½ï¿½ 0-255
     };
 
     class zhuziPen {
@@ -63,9 +63,49 @@ namespace zhuzi {
 
     class zhuziBrush {
     public:
+        // ï¿½ï¿½É«ï¿½ï¿½Ë¢
         zhuziBrush(const zhuziColor& color) : m_brush(new Gdiplus::SolidBrush(color)) {}
+
+        // ï¿½ï¿½ HBRUSH ï¿½ï¿½ï¿½ì£¨ï¿½ï¿½Ö§ï¿½ï¿½ BS_SOLIDï¿½ï¿½
+        zhuziBrush(HBRUSH hBrush) {
+            LOGBRUSH lb;
+            if (GetObject(hBrush, sizeof(LOGBRUSH), &lb) && lb.lbStyle == BS_SOLID) {
+                COLORREF color = lb.lbColor;
+                m_brush = new Gdiplus::SolidBrush(Gdiplus::Color(GetRValue(color), GetGValue(color), GetBValue(color)));
+            }
+            else {
+                m_brush = new Gdiplus::SolidBrush(Gdiplus::Color(0, 0, 0));
+            }
+        }
+
+        // ï¿½ï¿½ï¿½Ô½ï¿½ï¿½ä»­Ë¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É«ï¿½ï¿½
+        zhuziBrush(const zhuziColor& color1, const zhuziColor& color2,
+            const Gdiplus::PointF& point1, const Gdiplus::PointF& point2)
+            : m_brush(new Gdiplus::LinearGradientBrush(point1, point2, color1, color2)) {
+        }
+
+        // ï¿½ï¿½ï¿½Ô½ï¿½ï¿½ä»­Ë¢ï¿½ï¿½ï¿½ï¿½ï¿½Î·ï¿½Î§ï¿½Í½Ç¶È£ï¿½
+        zhuziBrush(const zhuziColor& color1, const zhuziColor& color2,
+            const Gdiplus::RectF& rect, float angle, bool isAngleScalable = false)
+            : m_brush(new Gdiplus::LinearGradientBrush(rect, color1, color2, angle, isAngleScalable)) {
+        }
+
         ~zhuziBrush() { delete m_brush; }
         Gdiplus::Brush* get() const { return m_brush; }
+
+        // ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ¶ï¿½
+        zhuziBrush(const zhuziBrush&) = delete;
+        zhuziBrush& operator=(const zhuziBrush&) = delete;
+        zhuziBrush(zhuziBrush&& other) noexcept : m_brush(other.m_brush) { other.m_brush = nullptr; }
+        zhuziBrush& operator=(zhuziBrush&& other) noexcept {
+            if (this != &other) {
+                delete m_brush;
+                m_brush = other.m_brush;
+                other.m_brush = nullptr;
+            }
+            return *this;
+        }
+
     private:
         Gdiplus::Brush* m_brush;
     };
@@ -73,7 +113,7 @@ namespace zhuzi {
     class zhuziDC {
     public:
         zhuziDC(HWND hwnd) : m_hwnd(hwnd), m_hdc(GetDC(hwnd)), m_graphics(m_hdc) {
-            m_graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
+            m_graphics.SetSmoothingMode(Gdiplus::SmoothingMode::SmoothingModeDefault);
         }
         ~zhuziDC() { if (m_hdc) ReleaseDC(m_hwnd, m_hdc); }
         Gdiplus::Graphics& getGraphics() { return m_graphics; }
@@ -91,7 +131,7 @@ namespace zhuzi {
             : m_graphics(hdc), m_clientRect(clientRect) {
             m_graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
             m_graphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
-            m_graphics.SetTextRenderingHint(Gdiplus::TextRenderingHintAntiAliasGridFit);
+            m_graphics.SetTextRenderingHint(Gdiplus::TextRenderingHint::TextRenderingHintAntiAlias);
         }
 
         void clear(const zhuziColor& color) {
@@ -141,17 +181,20 @@ namespace zhuzi {
                 stringFormat.SetLineAlignment(Gdiplus::StringAlignmentNear);
 
             if (format & DT_SINGLELINE)
-                stringFormat.SetFormatFlags(stringFormat.GetFormatFlags() | Gdiplus::StringFormatFlagsNoWrap);
+                stringFormat.SetFormatFlags(stringFormat.GetFormatFlags() | \
+                    Gdiplus::StringFormatFlagsNoWrap);
 
             Gdiplus::RectF layoutRect((Gdiplus::REAL)rect.left, (Gdiplus::REAL)rect.top,
                 (Gdiplus::REAL)(rect.right - rect.left), (Gdiplus::REAL)(rect.bottom - rect.top));
-            m_graphics.DrawString(text.c_str(), (int)text.length(), &gdiFont, layoutRect, &stringFormat, brush.get());
+            m_graphics.DrawString(text.c_str(), (int)text.length(), \
+                & gdiFont, layoutRect, &stringFormat, brush.get());
         }
 
         void measureText(const zhuziString& text, const zhuziFont& font, SIZE& size) const {
             Gdiplus::Font gdiFont(font.getFontFamily(), (Gdiplus::REAL)font.getSize(), font.getStyle(), Gdiplus::UnitPixel);
             Gdiplus::RectF bounds;
-            m_graphics.MeasureString(text.c_str(), (int)text.length(), &gdiFont, Gdiplus::PointF(0, 0), &bounds);
+            m_graphics.MeasureString(text.c_str(), \
+                (int)text.length(), &gdiFont, Gdiplus::PointF(0, 0), &bounds);
             size.cx = (int)ceil(bounds.Width);
             size.cy = (int)ceil(bounds.Height);
         }

@@ -164,6 +164,40 @@ namespace zhuzi {
         return AddBand(info);
     }
 
+    int zhuziRebar::AddToolbarBand(zhuziToolBar* toolBar, DWORD style,
+        int minWidth, int idealWidth,
+        int fixedHeight, const zhuziString& title)
+    {
+        if (!toolBar || !toolBar->getHandle()) return -1;
+
+        // 关键：将工具栏的父窗口设置为 Rebar 的父窗口（否则拖拽带区时工具栏会消失）
+        HWND hParentRebar = GetParent(m_hwnd);
+        //if (GetParent(toolBar->getHandle()) != hParentRebar) {
+        //    SetParent(toolBar->getHandle(), hParentRebar);
+        //}
+
+        toolBar->setAutoTopDock(false);
+
+        // 构建带区信息
+        RebarBandInfo info = { 0 };
+        info.hwndChild = toolBar->getHandle();
+        info.fStyle = style;
+        info.cxMinChild = minWidth;
+        info.cxIdeal = idealWidth;
+        info.cyChild = fixedHeight;
+        info.cyMinChild = fixedHeight;    // 最小高度等于固定高度
+        info.szText = title.empty() ? L" " : title;  // 必须有标题（空格也可）
+
+        // 自动计算理想宽度（如果未指定）
+        if (idealWidth <= 0) {
+            RECT rc;
+            GetWindowRect(toolBar->getHandle(), &rc);
+            info.cxIdeal = rc.right - rc.left;
+        }
+
+        return AddBand(info);
+    }
+
     bool zhuziRebar::DeleteBand(int iBand) {
         BOOL ret = (BOOL)SendMessage(m_hwnd, RB_DELETEBAND, iBand, 0);
         if (ret && iBand >= 0 && iBand < (int)m_bandIds.size())
@@ -218,7 +252,6 @@ namespace zhuzi {
         UINT_PTR uIdSubclass, DWORD_PTR dwRefData) {
         zhuziRebar* pThis = (zhuziRebar*)dwRefData;
         if (!pThis) return DefSubclassProc(hwnd, msg, wParam, lParam);
-        _CONTAINER_MSGHANDLER_IF_N
         if (msg == WM_NOTIFY) {
             LPNMHDR pnmh = (LPNMHDR)lParam;
             if (pnmh->code == RBN_HEIGHTCHANGE) {
@@ -282,4 +315,14 @@ namespace zhuzi {
         return DefSubclassProc(hwnd, msg, wParam, lParam);
     }
 
+    void zhuziRebar::create() {
+        // 使用绝对布局创建，初始位置和大小任意（后续 onParentResize 会修正）
+        zhuziControl::create(0, 0, 100, 30, WS_CHILD | WS_VISIBLE);
+        // 确保立即调整到正确位置
+        if (m_parent) {
+            RECT rc;
+            GetClientRect(m_parent->getHandle(), &rc);
+            onParentResize(rc.right - rc.left, rc.bottom - rc.top);
+        }
+    }
 } // namespace zhuzi

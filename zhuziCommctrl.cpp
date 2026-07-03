@@ -1,4 +1,4 @@
-#include "zhuziCommctrl.h"
+ï»¿#include "zhuziCommctrl.h"
 #include "zhuziInstance.h"
 #include <windowsx.h>
 
@@ -13,12 +13,14 @@ namespace zhuzi {
     }
 
     void zhuziButton::setOnClick(std::function<void()> callback) {
-        if (auto* win = findParentWindow(this)) {
-            win->Bind(WM_COMMAND, MAKEWPARAM(m_id, BN_CLICKED), [callback](zhuziMessage& msg) -> bool {
-                if (callback) callback();
-                return true;   // ÏûÏ¢ÒÑ´¦Àí
-                });
-        }
+        HWND hParent = GetParent(m_hwnd);
+        if (!hParent) return;
+        zhuziControl* pParent = reinterpret_cast<zhuziControl*>(GetWindowLongPtrW(hParent, GWLP_USERDATA));
+        if (!pParent) return;
+        Bind(pParent, WM_COMMAND, MAKEWPARAM(m_id, BN_CLICKED), [callback](zhuziMsg* msg) {
+            if (callback) callback();
+            msg->handled = true;
+            });
     }
 
     // ==================== zhuziLabel ====================
@@ -31,11 +33,11 @@ namespace zhuzi {
     zhuziLabel::~zhuziLabel() { destroy(); }
 
     bool zhuziLabel::onCreate(DWORD style) {
-        // ±£´æ»ù´¡ÑùÊ½£¨È¥µô¶ÔÆëÏà¹ØÎ»£©
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê½ï¿½ï¿½È¥ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½
         m_baseStyle = style | WS_CHILD | WS_VISIBLE | SS_LEFTNOWORDWRAP | WS_CLIPSIBLINGS;
         m_baseStyle &= ~(SS_CENTER | SS_RIGHT | SS_CENTERIMAGE);
-        if (!createControl(L"STATIC", 0, 0, 0, 0, m_baseStyle,WS_EX_TRANSPARENT)) return false;
-        updateStyle(); // Ó¦ÓÃµ±Ç°¶ÔÆëÉèÖÃ
+        if (!createControl(L"STATIC", 0, 0, 0, 0, m_baseStyle, WS_EX_TRANSPARENT)) return false;
+        updateStyle(); // Ó¦ï¿½Ãµï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         return true;
     }
 
@@ -49,29 +51,34 @@ namespace zhuzi {
         if (m_hwnd) updateStyle();
     }
 
+    void zhuziLabel::setSingleLine(bool enable)
+    {
+        m_singleline = enable;
+        if (m_hwnd) updateStyle();
+    }
+
     void zhuziLabel::updateStyle() {
         if (!m_hwnd) return;
 
-        // »ñÈ¡µ±Ç°ÑùÊ½£¬Çå³ýËùÓÐË®Æ½¶ÔÆëÎ»ºÍ´¹Ö±¾ÓÖÐ¶ÔÆëÎ»
+        // ï¿½ï¿½È¡ï¿½ï¿½Ç°ï¿½ï¿½Ê½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë®Æ½ï¿½ï¿½ï¿½ï¿½Î»ï¿½Í´ï¿½Ö±ï¿½ï¿½ï¿½Ð¶ï¿½ï¿½ï¿½Î»
         LONG_PTR style = GetWindowLongPtrW(m_hwnd, GWL_STYLE);
-        style &= ~(SS_LEFT | SS_CENTER | SS_RIGHT | SS_LEFTNOWORDWRAP | SS_CENTERIMAGE);
+        style &= ~(SS_LEFT | SS_CENTER | SS_RIGHT | SS_LEFTNOWORDWRAP | SS_CENTERIMAGE | 0x00001000L);
 
-        // ÉèÖÃË®Æ½¶ÔÆë
+        // ï¿½ï¿½ï¿½ï¿½Ë®Æ½ï¿½ï¿½ï¿½ï¿½
         switch (m_hAlign) {
         case AlignHorizontal::Left:   style |= SS_LEFT; break;
         case AlignHorizontal::Center: style |= SS_CENTER; break;
         case AlignHorizontal::Right:  style |= SS_RIGHT; break;
         }
-        // Ìí¼Ó²»»»ÐÐÑùÊ½£¬·ÀÖ¹ÎÄ±¾»»ÐÐµ¼ÖÂ¸ß¶È±ä»¯
-        style |= 0x00001000L;
+        if (m_singleline) style |= 0x00001000L;
 
-        // ÉèÖÃ´¹Ö±¶ÔÆë
+        // ï¿½ï¿½ï¿½Ã´ï¿½Ö±ï¿½ï¿½ï¿½ï¿½
         if (m_vAlign == AlignVertical::Center) {
             style |= SS_CENTERIMAGE;
         }
 
         SetWindowLongPtrW(m_hwnd, GWL_STYLE, style);
-        // Ç¿ÖÆÖØ»æ
+        // Ç¿ï¿½ï¿½ï¿½Ø»ï¿½
         InvalidateRect(m_hwnd, nullptr, TRUE);
         UpdateWindow(m_hwnd);
     }
@@ -84,8 +91,10 @@ namespace zhuzi {
         zhuziString text = getText();
         if (text.empty()) return;
 
-		zhuziBrush brush(RGB(0,0,0));
-        paint.drawText(getText(), getFont(), brush, rct, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        zhuziBrush brush(RGB(0, 0, 0));
+        paint.drawText(getText(), getFont(), brush, rct, ((DWORD)(m_hAlign) |
+            ((m_vAlign == AlignVertical::Center ? DT_VCENTER : 0) |
+                (m_singleline ? DT_SINGLELINE : 0))));
     }
 
     // ==================== zhuziListBox ====================
@@ -145,26 +154,31 @@ namespace zhuzi {
     }
 
     void zhuziListBox::setOnSelChange(std::function<void()> callback) {
-        if (auto* win = findParentWindow(this)) {
-            win->Bind(WM_COMMAND, MAKEWPARAM(m_id, LBN_SELCHANGE), [callback](zhuziMessage&) -> bool {
-                if (callback) callback();
-                return true;
-                });
-        }
+        HWND hParent = GetParent(m_hwnd);
+        if (!hParent) return;
+        zhuziControl* pParent = reinterpret_cast<zhuziControl*>(GetWindowLongPtrW(hParent, GWLP_USERDATA));
+        if (!pParent) return;
+        Bind(pParent, WM_COMMAND, MAKEWPARAM(m_id, LBN_SELCHANGE), [callback](zhuziMsg* msg) {
+            if (callback) callback();
+            msg->handled = true;
+            });
     }
 
     void zhuziListBox::setOnDoubleClick(std::function<void()> callback) {
-        if (auto* win = findParentWindow(this)) {
-            win->Bind(WM_COMMAND, MAKEWPARAM(m_id, LBN_DBLCLK), [callback](zhuziMessage&) -> bool {
-                if (callback) callback();
-                return true;
-                });
-        }
+        HWND hParent = GetParent(m_hwnd);
+        if (!hParent) return;
+        zhuziControl* pParent = reinterpret_cast<zhuziControl*>(GetWindowLongPtrW(hParent, GWLP_USERDATA));
+        if (!pParent) return;
+        Bind(pParent, WM_COMMAND, MAKEWPARAM(m_id, LBN_DBLCLK), [callback](zhuziMsg* msg) {
+            if (callback) callback();
+            msg->handled = true;
+            });
     }
 
     // ==================== zhuziComboBox ====================
     zhuziComboBox::zhuziComboBox(zhuziControl* parent)
-        : zhuziControl(parent), m_isDropdownList(true) {}
+        : zhuziControl(parent), m_isDropdownList(true) {
+    }
 
     zhuziComboBox::~zhuziComboBox() { destroy(); }
 
@@ -176,7 +190,7 @@ namespace zhuzi {
 
     void zhuziComboBox::setDropdownList(bool dropdownList) {
         m_isDropdownList = dropdownList;
-        // Èç¹ûÒÑ¾­´´½¨£¬¿ÉÒÔ¶¯Ì¬ÐÞ¸ÄÑùÊ½£¨»ùÀàÌá¹©ÁË´°¿Ú¾ä±ú£©
+        // ï¿½ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½Ì¬ï¿½Þ¸ï¿½ï¿½ï¿½Ê½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½á¹©ï¿½Ë´ï¿½ï¿½Ú¾ï¿½ï¿½ï¿½ï¿½
         if (m_hwnd) {
             LONG_PTR curStyle = GetWindowLongPtrW(m_hwnd, GWL_STYLE);
             curStyle &= ~(CBS_DROPDOWN | CBS_DROPDOWNLIST);
@@ -245,21 +259,25 @@ namespace zhuzi {
     }
 
     void zhuziComboBox::setOnSelChange(std::function<void()> callback) {
-        if (auto* win = findParentWindow(this)) {
-            win->Bind(WM_COMMAND, MAKEWPARAM(m_id, CBN_SELCHANGE), [callback](zhuziMessage&) {
-                if (callback) callback();
-                return true;
-                });
-        }
+        HWND hParent = GetParent(m_hwnd);
+        if (!hParent) return;
+        zhuziControl* pParent = reinterpret_cast<zhuziControl*>(GetWindowLongPtrW(hParent, GWLP_USERDATA));
+        if (!pParent) return;
+        Bind(pParent, WM_COMMAND, MAKEWPARAM(m_id, CBN_SELCHANGE), [callback](zhuziMsg* msg) {
+            if (callback) callback();
+            msg->handled = true;
+            });
     }
 
     void zhuziComboBox::setOnDoubleClick(std::function<void()> callback) {
-        if (auto* win = findParentWindow(this)) {
-            win->Bind(WM_COMMAND, MAKEWPARAM(m_id, CBN_DBLCLK), [callback](zhuziMessage&) {
-                if (callback) callback();
-                return true;
-                });
-        }
+        HWND hParent = GetParent(m_hwnd);
+        if (!hParent) return;
+        zhuziControl* pParent = reinterpret_cast<zhuziControl*>(GetWindowLongPtrW(hParent, GWLP_USERDATA));
+        if (!pParent) return;
+        Bind(pParent, WM_COMMAND, MAKEWPARAM(m_id, CBN_DBLCLK), [callback](zhuziMsg* msg) {
+            if (callback) callback();
+            msg->handled = true;
+            });
     }
 
     // ==================== zhuziCheckButton ====================
@@ -279,12 +297,14 @@ namespace zhuzi {
     }
 
     void zhuziCheckButton::setOnCheck(std::function<void(bool)> callback) {
-        if (auto* win = findParentWindow(this)) {
-            win->Bind(WM_COMMAND, MAKEWPARAM(m_id, BN_CLICKED), [this, callback](zhuziMessage&) -> bool {
-                if (callback) callback(isChecked());
-                return true;
-                });
-        }
+        HWND hParent = GetParent(m_hwnd);
+        if (!hParent) return;
+        zhuziControl* pParent = reinterpret_cast<zhuziControl*>(GetWindowLongPtrW(hParent, GWLP_USERDATA));
+        if (!pParent) return;
+        Bind(pParent, WM_COMMAND, MAKEWPARAM(m_id, BN_CLICKED), [this, callback](zhuziMsg* msg) {
+            if (callback) callback(isChecked());
+            msg->handled = true;
+            });
     }
 
     // ==================== zhuziRadioButton ====================
@@ -304,12 +324,14 @@ namespace zhuzi {
     }
 
     void zhuziRadioButton::setOnCheck(std::function<void(bool)> callback) {
-        if (auto* win = findParentWindow(this)) {
-            win->Bind(WM_COMMAND, MAKEWPARAM(m_id, BN_CLICKED),
-                [this, callback](zhuziMessage&) { if (callback) callback(isChecked());
-                    return true;
-                });
-        }
+        HWND hParent = GetParent(m_hwnd);
+        if (!hParent) return;
+        zhuziControl* pParent = reinterpret_cast<zhuziControl*>(GetWindowLongPtrW(hParent, GWLP_USERDATA));
+        if (!pParent) return;
+        Bind(pParent, WM_COMMAND, MAKEWPARAM(m_id, BN_CLICKED), [this, callback](zhuziMsg* msg) {
+            if (callback) callback(isChecked());
+            msg->handled = true;
+            });
     }
 
     // ==================== zhuziFrame ====================
@@ -317,19 +339,20 @@ namespace zhuzi {
         zhuziFrame* pFrame = (zhuziFrame*)dwRefData;
         if (!pFrame) return DefSubclassProc(hwnd, msg, wParam, lParam);
 
-        _CONTAINER_MSGHANDLER_IF
-
         if (msg == WM_CTLCOLORSTATIC) {
             HDC hdc = (HDC)wParam;
             SetBkMode(hdc, TRANSPARENT);
             HBRUSH hBrush = pFrame->getBackgroundBrush();
             if (hBrush) return (LRESULT)hBrush;
+            else return (LRESULT)GetStockObject(NULL_BRUSH);
         }
         return DefSubclassProc(hwnd, msg, wParam, lParam);
     }
 
     zhuziFrame::zhuziFrame(zhuziControl* parent)
-        : zhuziControl(parent), m_hBrush(nullptr) {}
+        : zhuziControl(parent), m_hBrush(nullptr) {
+        m_isCustomDraw = true;
+    }
 
     zhuziFrame::~zhuziFrame() {
         if (m_hBrush) DeleteObject(m_hBrush);
@@ -403,6 +426,14 @@ namespace zhuzi {
 
     HBRUSH zhuziFrame::getBackgroundBrush() const {
         return m_hBrush;
+    }
+
+    void zhuziFrame::onPaint(zhuziPaint& paint) {
+        RECT rc;
+        GetClientRect(m_hwnd, &rc);
+        if (m_hBrush) {
+            paint.fillRect(0, 0, rc.right - rc.left, rc.bottom - rc.top, zhuziBrush(m_hBrush));
+        }
     }
 
 } // namespace zhuzi

@@ -36,8 +36,11 @@ namespace zhuzi {
     }
 
     zhuziToolBar::zhuziToolBar(zhuziControl* parent)
-        : zhuziControl(parent), m_himl(nullptr),
-        m_bgColor(GetSysColor(COLOR_BTNFACE)), m_hBgBrush(nullptr) {
+        : zhuziControl(parent),
+        m_himl(nullptr),
+        m_bgColor(GetSysColor(COLOR_BTNFACE)),
+        m_hBgBrush(nullptr),
+        m_autoTopDock(true) {
         INITCOMMONCONTROLSEX icex = { sizeof(INITCOMMONCONTROLSEX), ICC_BAR_CLASSES };
         InitCommonControlsEx(&icex);
     }
@@ -198,13 +201,14 @@ namespace zhuzi {
     }
 
     void zhuziToolBar::setOnClick(int cmdId, std::function<void()> callback) {
-        zhuziWindow* parentWnd = findParentWindow(this);
-        if (parentWnd) {
-            parentWnd->Bind(WM_COMMAND, (WPARAM)cmdId, [callback](zhuziMessage&) -> bool {
-                if (callback) callback();
-                return true;
-                });
-        }
+        HWND hParent = GetParent(m_hwnd);
+        if (!hParent) return;
+        zhuziControl* pParent = reinterpret_cast<zhuziControl*>(GetWindowLongPtrW(hParent, GWLP_USERDATA));
+        if (!pParent) return;
+        Bind(pParent, WM_COMMAND, (WPARAM)cmdId, [callback](zhuziMsg* msg) {
+            if (callback) callback();
+            msg->handled = true;
+            });
     }
 
     void zhuziToolBar::setButtonSize(int width, int height) {
@@ -253,28 +257,35 @@ namespace zhuzi {
     }
 
     void zhuziToolBar::autoSize() {
+        if (!m_autoTopDock) return;  // 托管模式下不允许自动调整大小
+        if (m_hwnd) SendMessage(m_hwnd, TB_AUTOSIZE, 0, 0);
+    }
+
+    void zhuziToolBar::autoSizeF() {
         if (m_hwnd) SendMessage(m_hwnd, TB_AUTOSIZE, 0, 0);
     }
 
     void zhuziToolBar::updateLayout() {
         if (!m_hwnd || !m_parent) return;
 
+        // 如果禁用了自动顶置，则完全不做任何布局调整（包括大小调整）
+        if (!m_autoTopDock) return;
+
+        // 原有自动顶置逻辑保持不变
         HWND hParent = m_parent->getHandle();
         RECT rcParent;
         GetClientRect(hParent, &rcParent);
         int parentWidth = rcParent.right - rcParent.left;
-
-        // 获取工具栏所需高度
         RECT rcToolbar;
         GetWindowRect(m_hwnd, &rcToolbar);
         int height = rcToolbar.bottom - rcToolbar.top;
-        if (height == 0) height = 28; // 保底高度
-
-        // 放置在顶部 (y=0)，宽度填满
+        if (height == 0) height = 28;
         SetWindowPos(m_hwnd, nullptr, 0, 0, parentWidth, height, SWP_NOZORDER);
     }
 
     void zhuziToolBar::onParentResize(int parentWidth, int parentHeight) {
+        // 如果禁用了自动顶置，则完全忽略父窗口大小变化
+        if (!m_autoTopDock) return;
         updateLayout();
     }
 

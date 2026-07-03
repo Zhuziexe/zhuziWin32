@@ -34,23 +34,31 @@ namespace zhuzi {
         if (!createControl(TRACKBAR_CLASSW, 0, 0, 0, 0, finalStyle))
             return false;
 
-        zhuziWindow* pWin = findParentWindow(this);
-        if (pWin) {
-            auto handler = [this](zhuziMessage& msg) -> bool {
-                HWND hwndScroll = (HWND)msg.lParam;
-                if (hwndScroll == m_hwnd) {
-                    int code = LOWORD(msg.wParam);
-                    if (code == SB_THUMBPOSITION || code == SB_ENDSCROLL || code == SB_THUMBTRACK) {
-                        if (m_onPosChange) {
-                            m_onPosChange(getPos());
+        HWND hParent = GetParent(m_hwnd);
+        if (hParent) {
+            zhuziControl* pParent = reinterpret_cast<zhuziControl*>(GetWindowLongPtrW(hParent, GWLP_USERDATA));
+            if (pParent) {
+                Bind(pParent, WM_HSCROLL, [this](zhuziMsg* msg) {
+                    HWND hwndScroll = (HWND)msg->lParam;
+                    if (hwndScroll == m_hwnd) {
+                        int code = LOWORD(msg->wParam);
+                        if (code == SB_THUMBPOSITION || code == SB_ENDSCROLL || code == SB_THUMBTRACK) {
+                            if (m_onPosChange) m_onPosChange(getPos());
                         }
+                        msg->handled = true;
                     }
-                    return true;   // 消息已处理
-                }
-                return false;
-                };
-            pWin->Bind(WM_HSCROLL, handler);
-            pWin->Bind(WM_VSCROLL, handler);
+                    });
+                Bind(pParent, WM_VSCROLL, [this](zhuziMsg* msg) {
+                    HWND hwndScroll = (HWND)msg->lParam;
+                    if (hwndScroll == m_hwnd) {
+                        int code = LOWORD(msg->wParam);
+                        if (code == SB_THUMBPOSITION || code == SB_ENDSCROLL || code == SB_THUMBTRACK) {
+                            if (m_onPosChange) m_onPosChange(getPos());
+                        }
+                        msg->handled = true;
+                    }
+                    });
+            }
         }
 
         setRange(0, 100);

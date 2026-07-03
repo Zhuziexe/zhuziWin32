@@ -3,6 +3,7 @@
 #include "zhuziControl.h"
 #include <commctrl.h>
 #include <vector>
+#include "zhuziToolBar.h"
 
 namespace zhuzi {
 
@@ -35,6 +36,13 @@ namespace zhuzi {
         // 简便方法：子控件 Band
         int AddBand(zhuziControl* childControl, DWORD style = RBBS_GRIPPERALWAYS,
             int minWidth = 50, int idealWidth = 100, int fixedHeight = 0);
+        // 专门为工具栏添加带区（自动处理样式和位置）
+        int AddToolbarBand(zhuziToolBar* toolBar,
+            DWORD style = RBBS_GRIPPERALWAYS,
+            int minWidth = 50,
+            int idealWidth = 100,
+            int fixedHeight = 0,
+            const zhuziString& title = L" ");
 
         bool DeleteBand(int iBand);
         int GetBandCount() const;
@@ -45,7 +53,7 @@ namespace zhuzi {
 
         void SetBackgroundColor(COLORREF clr);
         void SetControlStyle(DWORD dwStyle, bool bSet = true);
-
+        void create();   // 无参创建，自动置于父窗口顶端
     protected:
         static LRESULT CALLBACK RebarSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
             UINT_PTR uIdSubclass, DWORD_PTR dwRefData);

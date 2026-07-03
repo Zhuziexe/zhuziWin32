@@ -95,18 +95,19 @@ namespace zhuzi {
     void zhuziListView::registerParentNotify() {
         if (m_flags.notifyRegistered) return;
         if (!m_hwnd) return;
-
-        zhuziWindow* parentWnd = findParentWindow(this);
-        if (parentWnd) {
-            parentWnd->Bind(WM_NOTIFY, [this](zhuziMessage& msg) -> bool {
-                NMHDR* pnmh = reinterpret_cast<NMHDR*>(msg.lParam);
-                if (pnmh->hwndFrom == m_hwnd) {
-                    return handleNotifyFromParent(pnmh);
+        HWND hParent = GetParent(m_hwnd);
+        if (!hParent) return;
+        zhuziControl* pParent = reinterpret_cast<zhuziControl*>(GetWindowLongPtrW(hParent, GWLP_USERDATA));
+        if (!pParent) return;
+        Bind(pParent, WM_NOTIFY, [this](zhuziMsg* msg) {
+            NMHDR* pnmh = reinterpret_cast<NMHDR*>(msg->lParam);
+            if (pnmh->hwndFrom == m_hwnd) {
+                if (handleNotifyFromParent(pnmh)) {
+                    msg->handled = true;
                 }
-                return false;
-                });
-            m_flags.notifyRegistered = true;
-        }
+            }
+            });
+        m_flags.notifyRegistered = true;
     }
 
     bool zhuziListView::handleNotifyFromParent(NMHDR* pnmh) {

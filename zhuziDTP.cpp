@@ -249,21 +249,19 @@ namespace zhuzi {
     bool zhuziDTP::isShowNoneStyle() const { return m_hwnd ? (GetWindowLongPtrW(m_hwnd, GWL_STYLE) & DTS_SHOWNONE) != 0 : m_showNone; }
 
     void zhuziDTP::setupEventHandling() {
-        if (m_eventBound) return;          // 防止重复绑定
+        if (m_eventBound) return;
         if (!m_hwnd) return;
-        zhuziWindow* parentWindow = findParentWindow(this);
-        if (!parentWindow) return;
-
+        HWND hParent = GetParent(m_hwnd);
+        if (!hParent) return;
+        zhuziControl* pParent = reinterpret_cast<zhuziControl*>(GetWindowLongPtrW(hParent, GWLP_USERDATA));
+        if (!pParent) return;
         m_eventBound = true;
-        parentWindow->Bind(WM_NOTIFY, [this](zhuziMessage& msg) -> bool {
-            NMHDR* pNmhdr = (NMHDR*)msg.lParam;
-            if (pNmhdr->hwndFrom == m_hwnd) {
-                if (pNmhdr->code == DTN_DATETIMECHANGE || pNmhdr->code == DTN_USERSTRING) {
-                    sendDateTimeChangeNotification();
-                    return true;   // 已处理
-                }
+        Bind(pParent, WM_NOTIFY, [this](zhuziMsg* msg) {
+            NMHDR* pNmhdr = (NMHDR*)msg->lParam;
+            if (pNmhdr->hwndFrom == m_hwnd && (pNmhdr->code == DTN_DATETIMECHANGE || pNmhdr->code == DTN_USERSTRING)) {
+                sendDateTimeChangeNotification();
+                msg->handled = true;
             }
-            return false;  // 未处理，继续传递
             });
     }
 
@@ -306,18 +304,20 @@ namespace zhuzi {
         DWORD calStyle = WS_CHILD | WS_VISIBLE | style;
         if (!createControl(MONTHCAL_CLASS_NAME, 0, 0, 0, 0, calStyle)) return false;
 
-        zhuziWindow* parentWindow = findParentWindow(this);
-        if (parentWindow && !m_eventBound) {
-            m_eventBound = true;
-            parentWindow->Bind(WM_NOTIFY, [this](zhuziMessage& msg) -> bool {
-                NMHDR* pNmhdr = (NMHDR*)msg.lParam;
-                if (pNmhdr->hwndFrom == m_hwnd && pNmhdr->code == MCN_SELCHANGE) {
-                    NMSELCHANGE* pChange = (NMSELCHANGE*)msg.lParam;
-                    if (m_onSelChange) m_onSelChange(pChange->stSelStart);
-                    return true;
-                }
-                return false;
-                });
+        HWND hParent = GetParent(m_hwnd);
+        if (hParent) {
+            zhuziControl* pParent = reinterpret_cast<zhuziControl*>(GetWindowLongPtrW(hParent, GWLP_USERDATA));
+            if (pParent && !m_eventBound) {
+                m_eventBound = true;
+                Bind(pParent, WM_NOTIFY, [this](zhuziMsg* msg) {
+                    NMHDR* pNmhdr = (NMHDR*)msg->lParam;
+                    if (pNmhdr->hwndFrom == m_hwnd && pNmhdr->code == MCN_SELCHANGE) {
+                        NMSELCHANGE* pChange = (NMSELCHANGE*)msg->lParam;
+                        if (m_onSelChange) m_onSelChange(pChange->stSelStart);
+                        msg->handled = true;
+                    }
+                    });
+            }
         }
         setToToday();
         return true;

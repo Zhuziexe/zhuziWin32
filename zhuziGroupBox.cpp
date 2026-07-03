@@ -28,8 +28,6 @@ namespace zhuzi {
         zhuziGroupBox* pThis = (zhuziGroupBox*)dwRefData;
         if (!pThis) return DefSubclassProc(hwnd, msg, wParam, lParam);
 
-        _CONTAINER_MSGHANDLER_IF
-
         // 背景色处理（如果设置了背景色）
         if (msg == WM_CTLCOLORSTATIC && pThis->m_hasBgColor && pThis->m_hBgBrush) {
             HDC hdc = (HDC)wParam;

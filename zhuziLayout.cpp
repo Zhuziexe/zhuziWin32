@@ -15,7 +15,6 @@ namespace zhuzi {
             RemoveWindowSubclass(hwnd, LayoutWndProc, uIdSubclass);
             return DefSubclassProc(hwnd, msg, wParam, lParam);
         }
-        _CONTAINER_MSGHANDLER_IF_N;
         return DefSubclassProc(hwnd, msg, wParam, lParam);
     }
 

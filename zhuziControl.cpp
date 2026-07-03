@@ -3,18 +3,155 @@
 #include <windowsx.h>
 #include <cmath>
 #include "zhuziCommctrl.h"
+#include <unordered_map>
+#include <vector>
+#include <algorithm>
+
+#ifndef RGBA
+#define RGBA(r,g,b,a) ((COLORREF)(((a)&0xFF)<<24) | ((r)&0xFF) | (((g)&0xFF)<<8) | (((b)&0xFF)<<16))
+#endif
 
 namespace zhuzi {
-    zhuziWindow* findParentWindow(zhuziControl* ctrl) {
-        while (ctrl) {
-            if (auto* w = dynamic_cast<zhuziWindow*>(ctrl)) return w;
-            ctrl = ctrl->getParent();
-        }
-        return nullptr;
+
+    // ========== 全局绑定存储（分开存储）==========
+    struct Handler {
+        int id;
+        UINT msg;
+        std::function<void(zhuziMsg*)> callback;
+    };
+    static std::unordered_map<HWND, std::vector<Handler>> s_handlerMap;
+
+    struct WParamHandler {
+        int id;
+        UINT msg;
+        WPARAM wParam;
+        std::function<void(zhuziMsg*)> callback;
+    };
+    static std::unordered_map<HWND, std::vector<WParamHandler>> s_wParamHandlerMap;
+
+    static std::vector<Handler*> s_idToHandler;
+    static std::vector<WParamHandler*> s_idToWParamHandler;
+    static int s_nextHandlerId = 1;
+
+    // ---------- Bind 实现 ----------
+    int Bind(zhuziControl* pCtrl, UINT uMsg, std::function<void(zhuziMsg*)> callback) {
+        if (!pCtrl || !pCtrl->getHandle()) return -1;
+        HWND hwnd = pCtrl->getHandle();
+        int id = s_nextHandlerId++;
+        if ((int)s_idToHandler.size() <= id) s_idToHandler.resize(id + 1, nullptr);
+        Handler handler{ id, uMsg, callback };
+        s_handlerMap[hwnd].push_back(handler);
+        s_idToHandler[id] = &s_handlerMap[hwnd].back();
+        return id;
     }
 
+    int Bind(zhuziControl* pCtrl, UINT uMsg, WPARAM wParam, std::function<void(zhuziMsg*)> callback) {
+        if (!pCtrl || !pCtrl->getHandle()) return -1;
+        HWND hwnd = pCtrl->getHandle();
+        int id = s_nextHandlerId++;
+        if ((int)s_idToWParamHandler.size() <= id) s_idToWParamHandler.resize(id + 1, nullptr);
+        WParamHandler handler{ id, uMsg, wParam, callback };
+        s_wParamHandlerMap[hwnd].push_back(handler);
+        s_idToWParamHandler[id] = &s_wParamHandlerMap[hwnd].back();
+        return id;
+    }
+
+    int Bind(HWND hwnd, UINT uMsg, std::function<void(zhuziMsg*)> callback) {
+        if (!hwnd) return -1;
+        int id = s_nextHandlerId++;
+        if ((int)s_idToHandler.size() <= id) s_idToHandler.resize(id + 1, nullptr);
+        Handler handler{ id, uMsg, callback };
+        s_handlerMap[hwnd].push_back(handler);
+        s_idToHandler[id] = &s_handlerMap[hwnd].back();
+        return id;
+    }
+
+    // ---------- Unbind ----------
+    void Unbind(int handlerId) {
+        if (handlerId <= 0 || handlerId >= s_nextHandlerId) return;
+        if (handlerId < (int)s_idToHandler.size() && s_idToHandler[handlerId]) {
+            for (auto& pair : s_handlerMap) {
+                auto& vec = pair.second;
+                auto it = std::find_if(vec.begin(), vec.end(), [handlerId](const Handler& h) { return h.id == handlerId; });
+                if (it != vec.end()) {
+                    vec.erase(it);
+                    if (vec.empty()) s_handlerMap.erase(pair.first);
+                    break;
+                }
+            }
+            s_idToHandler[handlerId] = nullptr;
+        }
+        else if (handlerId < (int)s_idToWParamHandler.size() && s_idToWParamHandler[handlerId]) {
+            for (auto& pair : s_wParamHandlerMap) {
+                auto& vec = pair.second;
+                auto it = std::find_if(vec.begin(), vec.end(), [handlerId](const WParamHandler& h) { return h.id == handlerId; });
+                if (it != vec.end()) {
+                    vec.erase(it);
+                    if (vec.empty()) s_wParamHandlerMap.erase(pair.first);
+                    break;
+                }
+            }
+            s_idToWParamHandler[handlerId] = nullptr;
+        }
+    }
+
+    void Unbind(zhuziControl* pCtrl, UINT uMsg) {
+        if (!pCtrl) return;
+        HWND hwnd = pCtrl->getHandle();
+        auto it = s_handlerMap.find(hwnd);
+        if (it != s_handlerMap.end()) {
+            auto& vec = it->second;
+            for (auto& h : vec) if (h.id >= 0 && h.id < (int)s_idToHandler.size()) s_idToHandler[h.id] = nullptr;
+            vec.erase(std::remove_if(vec.begin(), vec.end(), [uMsg](const Handler& h) { return h.msg == uMsg; }), vec.end());
+            if (vec.empty()) s_handlerMap.erase(hwnd);
+        }
+        auto it2 = s_wParamHandlerMap.find(hwnd);
+        if (it2 != s_wParamHandlerMap.end()) {
+            auto& vec = it2->second;
+            for (auto& h : vec) if (h.id >= 0 && h.id < (int)s_idToWParamHandler.size()) s_idToWParamHandler[h.id] = nullptr;
+            vec.erase(std::remove_if(vec.begin(), vec.end(), [uMsg](const WParamHandler& h) { return h.msg == uMsg; }), vec.end());
+            if (vec.empty()) s_wParamHandlerMap.erase(hwnd);
+        }
+    }
+
+    bool DispatchMessageToControl(HWND hwnd, zhuziMsg& msg) {
+        if (!hwnd) return false;
+
+        // 1. 检查带 wParam 的精确处理器
+        auto itW = s_wParamHandlerMap.find(hwnd);
+        if (itW != s_wParamHandlerMap.end()) {
+            for (auto& handler : itW->second) {
+                if (handler.msg == msg.msg && handler.wParam == msg.wParam) {
+                    handler.callback(&msg);
+                    if (msg.handled) { return true; OutputDebugString(L"LOL\n"); }
+                }
+            }
+        }
+
+        // 2. 检查普通处理器
+        auto it = s_handlerMap.find(hwnd);
+        if (it != s_handlerMap.end()) {
+            for (auto& handler : it->second) {
+                if (handler.msg == msg.msg) {
+                    handler.callback(&msg);
+                    if (msg.handled) { return true; OutputDebugString(L"LOL\n"); }
+                }
+            }
+        }
+        /*       // 3. 向上冒泡到父窗口
+        HWND hParent = GetParent(hwnd);
+        if (hParent && IsWindow(hParent)) {
+            // 避免无限递归（父窗口不能是自己）
+            if (hParent != hwnd) {
+                return DispatchMessageToControl(hParent, msg);
+            }
+        }
+        */
+        return false;
+    }
+
+    // ========== 原有绘图辅助函数 ==========
     void PremultiplyAlphaBits(void* bits, int width, int height) {
-        // 假设 32 位 BGRA 格式（Windows DIB 默认）
         BYTE* p = (BYTE*)bits;
         int stride = width * 4;
         for (int y = 0; y < height; ++y) {
@@ -30,13 +167,12 @@ namespace zhuzi {
                     pixel[1] = (BYTE)((pixel[1] * a) / 255);
                     pixel[2] = (BYTE)((pixel[2] * a) / 255);
                 }
-                // a == 255 时 RGB 不变
             }
         }
     }
 
+    // ========== 控件 ID 管理 ==========
     std::bitset<1000> zhuziControl::s_idUsed;
-
     int zhuziControl::allocateId() {
         for (size_t i = 0; i < 1000; ++i) {
             if (!s_idUsed[i]) {
@@ -46,7 +182,6 @@ namespace zhuzi {
         }
         throw std::out_of_range("No available control ID in range 2000-2999");
     }
-
     void zhuziControl::releaseId(int id) {
         if (id >= 2000 && id <= 2999) {
             size_t idx = static_cast<size_t>(id - 2000);
@@ -55,12 +190,14 @@ namespace zhuzi {
     }
 
     zhuziControl::zhuziControl(zhuziControl* parent)
-        : m_layoutType(LayoutType::None), m_hwnd(nullptr), m_id(-1),
-        m_parent(parent), m_useD2D(0), m_isCustomDraw(0) {
+        : m_layoutType(LayoutType::None), m_hwnd(nullptr), m_id(-1), m_parent(parent),
+        m_isCustomDraw(false), m_useD2D(false) {
         m_layoutParam[0] = m_layoutParam[1] = m_layoutParam[2] = m_layoutParam[3] = 0;
     }
 
-    zhuziControl::~zhuziControl() { destroy(); }
+    zhuziControl::~zhuziControl() {
+        destroy();
+    }
 
     void zhuziControl::initCreate(LayoutType type) {
         if (m_hwnd) throw std::runtime_error("Control already created");
@@ -99,7 +236,42 @@ namespace zhuzi {
         m_layoutParam[3] = bottom;
     }
 
-    bool zhuziControl::createControl(const wchar_t* className, int x, int y, int w, int h, DWORD style, DWORD exStyle, bool doSubClass) {
+    BOOL zhuziControl::postMessage(UINT uMsg, WPARAM wParam, LPARAM lParam) {
+        if (m_hwnd) return PostMessageW(m_hwnd, uMsg, wParam, lParam);
+        return FALSE;
+    }
+
+    LONG zhuziControl::getWindowLong(int nIndex) {
+        if (m_hwnd) return GetWindowLongW(m_hwnd, nIndex);
+        return 0;
+    }
+
+    LONG_PTR zhuziControl::getWindowLongPtr(int nIndex) {
+        if (m_hwnd) return GetWindowLongPtrW(m_hwnd, nIndex);
+        return 0;
+    }
+
+    LONG zhuziControl::setWindowLong(int nIndex, LONG dwNewLong) {
+        if (m_hwnd) return SetWindowLongW(m_hwnd, nIndex, dwNewLong);
+        return 0;
+    }
+
+    LONG_PTR zhuziControl::setWindowLongPtr(int nIndex, LONG_PTR dwNewLong) {
+        if (m_hwnd) return SetWindowLongPtrW(m_hwnd, nIndex, dwNewLong);
+        return 0;
+    }
+
+    BOOL zhuziControl::setWindowPos(HWND hWndInsertAfter,
+        int x, int y, int cx, int cy, UINT _uFlags) {
+        return ::SetWindowPos(m_hwnd, hWndInsertAfter, x, y, cx, cy, _uFlags);
+    }
+
+    BOOL zhuziControl::setWindowPos(int x, int y, int cx, int cy) {
+        return SetWindowPos(m_hwnd, nullptr, x, y, cx, cy, SWP_NOZORDER);
+    }
+
+    bool zhuziControl::createControl(const wchar_t* className, int x, int y,
+        int w, int h, DWORD style, DWORD exStyle, bool doSubClass) {
         if (m_hwnd) return false;
         if (m_id == -1) {
             try { m_id = allocateId(); }
@@ -231,10 +403,8 @@ namespace zhuzi {
 
     void zhuziControl::setLayoutParamOnly(int x, int y, int w, int h) {
         m_layoutType = LayoutType::Absolute;
-        m_layoutParam[0] = x;
-        m_layoutParam[1] = y;
-        m_layoutParam[2] = w;
-        m_layoutParam[3] = h;
+        m_layoutParam[0] = x; m_layoutParam[1] = y;
+        m_layoutParam[2] = w; m_layoutParam[3] = h;
     }
 
     LRESULT zhuziControl::SendWindowMessage(UINT msg, WPARAM wParam, LPARAM lParam) const {
@@ -242,34 +412,47 @@ namespace zhuzi {
     }
 
     void zhuziControl::setWindowTheme(const zhuziString themeName) {
-        if (m_hwnd) SetWindowTheme(m_hwnd, themeName.c_str(), nullptr);
+        if (m_hwnd) SetWindowTheme(m_hwnd, themeName.c_str(), NULL);
     }
 
-    LRESULT CALLBACK zhuziControl::ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData) {
+    void zhuziControl::setWindowTheme(const zhuziString themeName, const zhuziString subIdList) {
+        if (m_hwnd) SetWindowTheme(m_hwnd, themeName.c_str(), subIdList.c_str());
+    }
+
+    void zhuziControl::setFocus() {
+        if (m_hwnd && IsWindow(m_hwnd)) ::SetFocus(m_hwnd);
+    }
+
+    // ========== ControlWndProc（使用无冒泡分发）==========
+    LRESULT CALLBACK zhuziControl::ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+        UINT_PTR uIdSubclass, DWORD_PTR dwRefData) {
         zhuziControl* pThis = (zhuziControl*)dwRefData;
         if (!pThis || pThis->m_hwnd != hwnd) {
             RemoveWindowSubclass(hwnd, ControlWndProc, uIdSubclass);
             return DefSubclassProc(hwnd, msg, wParam, lParam);
         }
-
         if (msg == WM_NCDESTROY) {
             RemoveWindowSubclass(hwnd, ControlWndProc, uIdSubclass);
             pThis->m_hwnd = nullptr;
             return DefSubclassProc(hwnd, msg, wParam, lParam);
         }
 
+        zhuziMsg zmsg{ msg, wParam, lParam, 0, false };
+        if (DispatchMessageToControl(hwnd, zmsg)) {
+            return zmsg.result;
+        }
+
         if (msg == WM_KEYDOWN) {
             SendMessage(GetParent(hwnd), msg, wParam, lParam);
         }
 
-        if (!pThis->m_isCustomDraw) {
+        if (!(pThis->m_isCustomDraw)) {
             return DefSubclassProc(hwnd, msg, wParam, lParam);
         }
 
         switch (msg) {
         case WM_ERASEBKGND:
             return 1;
-
         case WM_PAINT: {
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hwnd, &ps);
@@ -279,17 +462,15 @@ namespace zhuzi {
                 int width = rcClient.right - rcClient.left;
                 int height = rcClient.bottom - rcClient.top;
                 if (width > 0 && height > 0) {
-                    if (pThis->m_useD2D) {
-                        // D2D 硬件加速分支
+                    if (pThis->isUsingD2D()) {
                         zhuziD2DRenderTarget d2d(hwnd);
                         if (d2d.beginDraw()) {
-                            d2d.clear(RGBA(0, 0, 0, 0));
+                            d2d.clear(0x00000000);
                             pThis->onPaintD2D(d2d);
                             d2d.endDraw();
                         }
                     }
                     else {
-                        // 原有的 GDI+ 绘图分支（保持不变）
                         if (pThis->getTransparent()) {
                             HDC memDC = CreateCompatibleDC(hdc);
                             BITMAPINFO bmi = { 0 };
@@ -306,7 +487,6 @@ namespace zhuzi {
                                 memset(pvBits, 0, width * height * 4);
                                 zhuziPaint paint(memDC, rcClient);
                                 pThis->onPaint(paint);
-                                PremultiplyAlphaBits(pvBits, width, height);
                                 BLENDFUNCTION blend = { AC_SRC_OVER, 0, 255, AC_SRC_ALPHA };
                                 AlphaBlend(hdc, 0, 0, width, height, memDC, 0, 0, width, height, blend);
                                 SelectObject(memDC, oldBitmap);
@@ -331,19 +511,15 @@ namespace zhuzi {
             }
             return 0;
         }
-
         case WM_LBUTTONUP:
             pThis->onLButtonUp(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
             return 0;
         case WM_RBUTTONUP:
             pThis->onRButtonUp(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
             return 0;
-        case WM_MOUSEMOVE: {
-            int x = GET_X_LPARAM(lParam);
-            int y = GET_Y_LPARAM(lParam);
-            pThis->onMouseMove(x, y);
+        case WM_MOUSEMOVE:
+            pThis->onMouseMove(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
             return 0;
-        }
         case WM_MOUSELEAVE:
             pThis->onMouseLeave();
             return 0;
@@ -351,26 +527,12 @@ namespace zhuzi {
         return DefSubclassProc(hwnd, msg, wParam, lParam);
     }
 
-    void zhuziControl::setFocus() {
-        if (m_hwnd && IsWindow(m_hwnd)) {
-            ::SetFocus(m_hwnd);
-        }
-    }
-
-    // ==================== zhuziWindow ====================
+    // ========== zhuziWindow 实现 ==========
     const wchar_t* zhuziWindow::WINDOW_CLASS_NAME = L"zhuziWindowClass";
     bool zhuziWindow::s_classRegistered = false;
 
-    zhuziWindow::zhuziWindow()
-        : zhuziControl(nullptr)
-        , m_hBgBrush(nullptr)
-        , m_minWidth(0), m_minHeight(0), m_maxWidth(0), m_maxHeight(0)
-        , m_nextHandlerId(1) {
-    }
-
-    zhuziWindow::~zhuziWindow() {
-        destroy();
-    }
+    zhuziWindow::zhuziWindow() : zhuziControl(nullptr), m_hBgBrush(nullptr), m_minWidth(0), m_minHeight(0), m_maxWidth(0), m_maxHeight(0) {}
+    zhuziWindow::~zhuziWindow() { if (m_hBgBrush) DeleteObject(m_hBgBrush); destroy(); }
 
     bool zhuziWindow::RegisterWindowClass() {
         if (s_classRegistered) return true;
@@ -413,14 +575,8 @@ namespace zhuzi {
         m_hBgBrush = nullptr;
     }
 
-    void zhuziWindow::show(int cmdShow) {
-        if (m_hwnd) ShowWindow(m_hwnd, cmdShow);
-    }
-
-    void zhuziWindow::update() {
-        if (m_hwnd) UpdateWindow(m_hwnd);
-    }
-
+    void zhuziWindow::show(int cmdShow) { if (m_hwnd) ShowWindow(m_hwnd, cmdShow); }
+    void zhuziWindow::update() { if (m_hwnd) UpdateWindow(m_hwnd); }
     void zhuziWindow::setIcon(const zhuziString& filename) {
         if (!m_hwnd) return;
         HICON hIcon = (HICON)LoadImageW(nullptr, filename.c_str(), IMAGE_ICON, 32, 32, LR_LOADFROMFILE | LR_DEFAULTSIZE);
@@ -428,7 +584,6 @@ namespace zhuzi {
         HICON hIconSmall = (HICON)LoadImageW(nullptr, filename.c_str(), IMAGE_ICON, 16, 16, LR_LOADFROMFILE | LR_DEFAULTSIZE);
         if (hIconSmall) SendMessageW(m_hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIconSmall);
     }
-
     void zhuziWindow::setIcon(int resourceId) {
         if (!m_hwnd) return;
         HICON hIcon = LoadIconW(zhuziInstance::getHandle(), MAKEINTRESOURCEW(resourceId));
@@ -437,24 +592,14 @@ namespace zhuzi {
             SendMessageW(m_hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
         }
     }
-
     void zhuziWindow::setBgColor(COLORREF color) {
         if (m_hBgBrush) DeleteObject(m_hBgBrush);
         m_hBgBrush = CreateSolidBrush(color);
         if (m_hwnd) InvalidateRect(m_hwnd, nullptr, TRUE);
     }
-
-    void zhuziWindow::setWindowRgn(zhuziRgn& rgn, bool bRedraw) {
-        if (m_hwnd) ::SetWindowRgn(m_hwnd, rgn.release(), bRedraw ? TRUE : FALSE);
-    }
-
-    void zhuziWindow::setWindowRgn(HRGN hRgn, bool bRedraw) {
-        if (m_hwnd && hRgn) ::SetWindowRgn(m_hwnd, hRgn, bRedraw ? TRUE : FALSE);
-    }
-
-    void zhuziWindow::clearWindowRgn(bool bRedraw) {
-        if (m_hwnd) ::SetWindowRgn(m_hwnd, nullptr, bRedraw ? TRUE : FALSE);
-    }
+    void zhuziWindow::setWindowRgn(zhuziRgn& rgn, bool bRedraw) { if (m_hwnd) ::SetWindowRgn(m_hwnd, rgn.release(), bRedraw ? TRUE : FALSE); }
+    void zhuziWindow::setWindowRgn(HRGN hRgn, bool bRedraw) { if (m_hwnd && hRgn) ::SetWindowRgn(m_hwnd, hRgn, bRedraw ? TRUE : FALSE); }
+    void zhuziWindow::clearWindowRgn(bool bRedraw) { if (m_hwnd) ::SetWindowRgn(m_hwnd, nullptr, bRedraw ? TRUE : FALSE); }
 
     void zhuziWindow::onParentResize(int parentWidth, int parentHeight) {
         if (m_hwnd) {
@@ -462,51 +607,12 @@ namespace zhuzi {
             while (child) {
                 zhuziControl* ctrl = (zhuziControl*)GetWindowLongPtrW(child, GWLP_USERDATA);
                 if (ctrl) {
-                    RECT rc;
-                    GetClientRect(m_hwnd, &rc);
+                    RECT rc; GetClientRect(m_hwnd, &rc);
                     ctrl->onParentResize(rc.right - rc.left, rc.bottom - rc.top);
                 }
                 child = GetWindow(child, GW_HWNDNEXT);
             }
         }
-    }
-
-    // ----- 新事件绑定实现 -----
-    int zhuziWindow::Bind(UINT msg, std::function<bool(zhuziMessage&)> handler) {
-        int id = m_nextHandlerId++;
-        m_handlers[msg].push_back({ id, std::move(handler) });
-        return id;
-    }
-
-    void zhuziWindow::Bind(UINT msg, WPARAM wParam, std::function<bool(zhuziMessage&)> handler) {
-        int id = m_nextHandlerId++;
-        m_exactHandlers[{msg, wParam}] = { id, std::move(handler) };
-    }
-
-    void zhuziWindow::Unbind(int handlerId) {
-        // 从普通处理器中删除
-        for (auto& pair : m_handlers) {
-            auto& vec = pair.second;
-            auto it = std::remove_if(vec.begin(), vec.end(),
-                [handlerId](const Handler& h) { return h.id == handlerId; });
-            if (it != vec.end()) {
-                vec.erase(it, vec.end());
-                break;
-            }
-        }
-        // 从精确处理器中删除
-        for (auto it = m_exactHandlers.begin(); it != m_exactHandlers.end(); ++it) {
-            if (it->second.id == handlerId) {
-                m_exactHandlers.erase(it);
-                break;
-            }
-        }
-    }
-
-    void zhuziWindow::Unbind(UINT msg) {
-        m_handlers.erase(msg);
-        // 注意：不删除精确匹配，因为精确匹配还依赖于 wParam。
-        // 若需删除精确匹配，用户必须调用 Unbind(handlerId) 或手动遍历。
     }
 
     LRESULT CALLBACK zhuziWindow::WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -527,7 +633,13 @@ namespace zhuzi {
     }
 
     LRESULT zhuziWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
-        // 背景擦除
+        // 先尝试派发消息到全局绑定（冒泡）
+        zhuziMsg zmsg{ msg, wParam, lParam, 0, false };
+        if (DispatchMessageToControl(m_hwnd, zmsg)) {
+            return zmsg.result;
+        }
+
+        // 原有的特殊消息处理
         if (msg == WM_ERASEBKGND) {
             if (m_hBgBrush) {
                 HDC hdc = (HDC)wParam;
@@ -538,7 +650,6 @@ namespace zhuzi {
             }
             return -1;
         }
-
         if (msg == WM_GETMINMAXINFO) {
             MINMAXINFO* pMMI = (MINMAXINFO*)lParam;
             if (m_minWidth > 0) pMMI->ptMinTrackSize.x = m_minWidth;
@@ -547,33 +658,8 @@ namespace zhuzi {
             if (m_maxHeight > 0) pMMI->ptMaxTrackSize.y = m_maxHeight;
             return 0;
         }
-
-        // 构造消息结构体
-        zhuziMessage message{ msg, wParam, lParam, 0, false };
-
-        // 1. 精确匹配（按 wParam）
-        auto exactIt = m_exactHandlers.find({ msg, wParam });
-        if (exactIt != m_exactHandlers.end()) {
-            if (exactIt->second.func(message)) {
-                return message.result;
-            }
-        }
-
-        // 2. 普通链式处理器
-        auto it = m_handlers.find(msg);
-        if (it != m_handlers.end()) {
-            for (auto& handler : it->second) {
-                if (handler.func(message)) {
-                    return message.result;
-                }
-            }
-        }
-
-        // 3. 默认窗口过程处理
         if (msg == WM_SIZE) {
-            int width = LOWORD(lParam);
-            int height = HIWORD(lParam);
-            onParentResize(width, height);
+            onParentResize(LOWORD(lParam), HIWORD(lParam));
             return 0;
         }
         if (msg == WM_NCDESTROY) {
@@ -581,7 +667,18 @@ namespace zhuzi {
             m_hwnd = nullptr;
             return 0;
         }
-        return -1;  // 表示未处理，需要继续 DefWindowProc
+        return -1;
     }
 
+    zhuziWindow* findParentWindow(zhuziControl* ctrl) {
+        while (ctrl) {
+            if (auto* w = dynamic_cast<zhuziWindow*>(ctrl)) return w;
+            ctrl = ctrl->getParent();
+        }
+        return nullptr;
+    }
+
+    zhuziControl* GetControlFromHWND(HWND hwnd) {
+        return reinterpret_cast<zhuziControl*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+    }
 } // namespace zhuzi

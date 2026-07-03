@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include <windows.h>
 #include <map>
 #include <vector>
@@ -6,71 +6,19 @@
 #include <memory>
 #include <stdexcept>
 #include <bitset>
+#include <unordered_map>
 #include "zhuziString.h"
 #include "zhuziFont.h"
 #include "zhuziPaint.h"
 #include "zhuziRgn.h"
 #include "zhuziD2D.h"
 #include <uxtheme.h>
+#include "zhuziType.h"
 #pragma comment(lib, "uxtheme.lib")
-
-// ÔÚÎÄ¼þ¿ªÍ·£¨namespace zhuzi Ö®Ç°£©Ìí¼ÓÁ½¸öºê
-#define _CONTAINER_MSGHANDLER_IF \
-if (msg == WM_COMMAND || msg == WM_NOTIFY) {\
-    HWND hParent = GetParent(hwnd);\
-    if (hParent) {\
-        SendMessageW(hParent, msg, wParam, lParam);\
-        return 0;\
-    }\
-}\
-else if (msg == WM_CTLCOLORSTATIC) {\
-    HDC hdc = (HDC)wParam;\
-    HWND hChild = (HWND)lParam;\
-    zhuziControl* pChildCtrl = (zhuziControl*)GetWindowLongPtrW(hChild, GWLP_USERDATA);\
-    if (pChildCtrl) {\
-        if (auto* pFrame = dynamic_cast<zhuziFrame*>(pChildCtrl)) {\
-            HBRUSH hBrush = pFrame->getBackgroundBrush();\
-            if (hBrush) {\
-                SetBkMode(hdc, TRANSPARENT);\
-                return (LRESULT)hBrush;\
-            }\
-        }\
-    }\
-    SetBkMode(hdc, TRANSPARENT);\
-    return (LRESULT)GetStockObject(NULL_BRUSH);\
-}
-
-#define _CONTAINER_MSGHANDLER_IF_N \
-if (msg == WM_COMMAND || msg == WM_NOTIFY) {\
-    HWND hParent = GetParent(hwnd);\
-    if (hParent) {\
-        SendMessageW(hParent, msg, wParam, lParam);\
-    }\
-}\
-else if (msg == WM_CTLCOLORSTATIC) {\
-    HDC hdc = (HDC)wParam;\
-    HWND hChild = (HWND)lParam;\
-    zhuziControl* pChildCtrl = (zhuziControl*)GetWindowLongPtrW(hChild, GWLP_USERDATA);\
-    if (pChildCtrl) {\
-        if (auto* pFrame = dynamic_cast<zhuziFrame*>(pChildCtrl)) {\
-            HBRUSH hBrush = pFrame->getBackgroundBrush();\
-            if (hBrush) {\
-                SetBkMode(hdc, TRANSPARENT);\
-                return (LRESULT)hBrush;\
-            }\
-        }\
-    }\
-    SetBkMode(hdc, TRANSPARENT);\
-    return (LRESULT)GetStockObject(NULL_BRUSH);\
-}
-
-#ifndef RGBA
-#define RGBA(r,g,b,a) ((COLORREF)(((a)&0xFF)<<24) | ((r)&0xFF) | (((g)&0xFF)<<8) | (((b)&0xFF)<<16))
-#endif
 
 namespace zhuzi {
 
-    struct zhuziMessage {
+    struct zhuziMsg {
         UINT msg;
         WPARAM wParam;
         LPARAM lParam;
@@ -79,8 +27,6 @@ namespace zhuzi {
     };
 
     class zhuziWindow;
-
-    zhuziWindow* findParentWindow(zhuziControl* ctrl);
 
     class zhuziControl {
     public:
@@ -115,6 +61,7 @@ namespace zhuzi {
         void setLayoutParamOnly(int x, int y, int w, int h);
         LRESULT SendWindowMessage(UINT msg, WPARAM wParam = NULL, LPARAM lParam = NULL) const;
         void setWindowTheme(const zhuziString themeName);
+        void setWindowTheme(const zhuziString themeName, const zhuziString subIdList);
         virtual void onPaint(zhuziPaint& paint) {}
         virtual void onPaintD2D(zhuziD2DRenderTarget& d2d) {}
         virtual void onLButtonUp(int x, int y) {}
@@ -132,6 +79,15 @@ namespace zhuzi {
         zhuziControl& operator=(zhuziControl&&) = default;
         void setCustomLayout() { m_layoutType = LayoutType::Custom; }
 
+        BOOL postMessage(UINT uMsg, WPARAM wParam = NULL, LPARAM lParam = NULL);
+
+        LONG getWindowLong(int nIndex);
+        LONG_PTR getWindowLongPtr(int nIndex);
+        LONG setWindowLong(int nIndex, LONG dwNewLong);
+        LONG_PTR setWindowLongPtr(int nIndex, LONG_PTR dwNewLong);
+        BOOL setWindowPos(HWND hWndInsertAfter,
+            int x, int y, int cx, int cy, UINT uFlags);
+        BOOL setWindowPos(int x, int y, int cx, int cy);
     protected:
         bool createControl(const wchar_t* className, int x, int y, int width, int height, DWORD style, DWORD exStyle = 0, bool doSubClass = true);
         void applyLayout(int parentWidth, int parentHeight);
@@ -145,9 +101,9 @@ namespace zhuzi {
         friend class zhuziWindow;
 
         short int m_id;
+        bool m_isCustomDraw : 1;
+        bool m_useD2D : 1;
         LayoutType m_layoutType;
-        uint8_t m_isCustomDraw : 1;
-        uint8_t m_useD2D : 1;    // Ê¹ÓÃ D2D ±êÖ¾£¬¹¹ÔìÊ±³õÊ¼»¯Îª 0
         bool m_flag1 = 0;
         int8_t m_flag2 = 0;
         int16_t m_flag3 = 0;
@@ -161,7 +117,16 @@ namespace zhuzi {
         void initCreate(LayoutType type);
     };
 
-    // zhuziWindow Àà£¨±£³ÖÔ­ÓÐ¶¨Òå£¬´Ë´¦½ö×÷Õ¼Î»£¬Êµ¼ÊÏîÄ¿ÖÐÇë±£ÁôÍêÕûÊµÏÖ£©
+    // È«ï¿½Ö°ó¶¨ºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø£ï¿½
+    int Bind(zhuziControl* pCtrl, UINT uMsg, std::function<void(zhuziMsg*)> callback);
+    int Bind(zhuziControl* pCtrl, UINT uMsg, WPARAM wParam, std::function<void(zhuziMsg*)> callback);
+    void Unbind(int handlerId);
+    void Unbind(zhuziControl* pCtrl, UINT uMsg);
+
+    zhuziWindow* findParentWindow(zhuziControl* ctrl);
+
+    zhuziControl* GetControlFromHWND(HWND hwnd);
+
     class zhuziWindow : public zhuziControl {
     public:
         zhuziWindow();
@@ -183,11 +148,6 @@ namespace zhuzi {
         void clearWindowRgn(bool bRedraw = true);
         virtual void onParentResize(int parentWidth, int parentHeight) override;
 
-        int Bind(UINT msg, std::function<bool(zhuziMessage&)> handler);
-        void Bind(UINT msg, WPARAM wParam, std::function<bool(zhuziMessage&)> handler);
-        void Unbind(int handlerId);
-        void Unbind(UINT msg);
-
     private:
         static bool RegisterWindowClass();
         static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -197,14 +157,7 @@ namespace zhuzi {
         zhuziString m_windowTitle;
         HBRUSH m_hBgBrush;
         short m_minWidth, m_minHeight, m_maxWidth, m_maxHeight;
-
-        struct Handler {
-            int id;
-            std::function<bool(zhuziMessage&)> func;
-        };
-        std::map<UINT, std::vector<Handler>> m_handlers;
-        std::map<std::pair<UINT, WPARAM>, Handler> m_exactHandlers;
-        int m_nextHandlerId;
     };
+
 
 } // namespace zhuzi

@@ -131,28 +131,25 @@ namespace zhuzi {
         zhuziWindow* parentWnd = findParentWindow(this);
         if (!parentWnd) return;
 
-        m_colorHandlerId = parentWnd->Bind(WM_CTLCOLOREDIT, [this](zhuziMessage& msg) -> bool {
-            HWND hChild = (HWND)msg.lParam;
+        // 使用全局 Bind，不需要 wParam 过滤
+        m_colorHandlerId = Bind(parentWnd, WM_CTLCOLOREDIT, [this](zhuziMsg* msg) {
+            HWND hChild = (HWND)msg->lParam;
             if (hChild == m_hwnd) {
-                HDC hdc = (HDC)msg.wParam;
+                HDC hdc = (HDC)msg->wParam;
                 SetTextColor(hdc, m_textColor.toCOLORREF());
                 SetBkColor(hdc, m_bgColor.toCOLORREF());
                 SetBkMode(hdc, OPAQUE);
                 if (m_hBgBrush) {
-                    msg.result = (LRESULT)m_hBgBrush;
-                    return true;
+                    msg->result = (LRESULT)m_hBgBrush;
+                    msg->handled = true;
                 }
             }
-            return false;
             });
     }
 
     void CmEdit::uninstallAutoColorHandler() {
         if (m_colorHandlerId != -1) {
-            zhuziWindow* parentWnd = findParentWindow(this);
-            if (parentWnd) {
-                parentWnd->Unbind(m_colorHandlerId);
-            }
+            Unbind(m_colorHandlerId);  // 全局 Unbind
             m_colorHandlerId = -1;
         }
     }

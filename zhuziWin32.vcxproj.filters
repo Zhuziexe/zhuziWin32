@@ -239,5 +239,8 @@
     <ClInclude Include="zhuziImage.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="zhuziType.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

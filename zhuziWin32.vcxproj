@@ -178,6 +178,7 @@
     <ClInclude Include="zhuziCommDlg.h" />
     <ClInclude Include="zhuziControl.h" />
     <ClInclude Include="zhuziD2D.h" />
+    <ClInclude Include="zhuziType.h" />
     <ClInclude Include="zhuziDialog.h" />
     <ClInclude Include="zhuziDragDrop.h" />
     <ClInclude Include="zhuziDTP.h" />

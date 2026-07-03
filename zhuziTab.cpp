@@ -146,39 +146,33 @@ namespace zhuzi {
 
     void zhuziTab::registerParentNotify() {
         if (m_notifyRegistered) return;
-
-        zhuziWindow* parentWnd = nullptr;
-        zhuziControl* p = m_parent;
-        while (p) {
-            parentWnd = dynamic_cast<zhuziWindow*>(p);
-            if (parentWnd) break;
-            p = p->getParent();
-        }
-
-        if (parentWnd) {
-            parentWnd->Bind(WM_NOTIFY, [this](zhuziMessage& msg) -> bool {
-                NMHDR* pnmh = reinterpret_cast<NMHDR*>(msg.lParam);
-                if (pnmh->hwndFrom == m_hwnd) {
-                    return handleNotifyFromParent(pnmh);
+        if (!m_hwnd) return;
+        HWND hParent = GetParent(m_hwnd);
+        if (!hParent) return;
+        zhuziControl* pParent = GetControlFromHWND(hParent); // 使用辅助函数
+        if (!pParent) return;
+        Bind(pParent, WM_NOTIFY, [this](zhuziMsg* msg) {
+            NMHDR* pnmh = reinterpret_cast<NMHDR*>(msg->lParam);
+            if (pnmh->hwndFrom == m_hwnd) {
+                if (handleNotifyFromParent(pnmh)) {
+                    msg->handled = true;
                 }
-                return false;
-                });
-            m_notifyRegistered = true;
-        }
+            }
+            });
+        m_notifyRegistered = true;
     }
 
     bool zhuziTab::handleNotifyFromParent(NMHDR* pnmh) {
         if (pnmh->code == TCN_SELCHANGE) {
             int newSel = getCurSel();
-            if (newSel != m_curSel) {
-                int oldSel = m_curSel;
-                m_curSel = newSel;
-                updatePagesVisibility();
-                updateCurrentPageLayout();
-                if (m_onSelChange) {
-                    m_onSelChange(oldSel, newSel);
-                }
-            }
+            if (newSel == m_curSel) return true; // 未变化，忽略
+            int oldSel = m_curSel;
+            m_curSel = newSel;
+            updatePagesVisibility();
+            updateCurrentPageLayout();
+            if (m_onSelChange) m_onSelChange(oldSel, newSel);
+            // 强制刷新父窗口，避免显示滞后
+            if (m_hwnd) InvalidateRect(m_hwnd, nullptr, TRUE);
             return true;
         }
         return false;
@@ -472,8 +466,7 @@ namespace zhuzi {
         zhuziTab* pTab = reinterpret_cast<zhuziTab*>(dwRefData);
         if (!pTab || pTab->m_hwnd != hwnd)
             return DefSubclassProc(hwnd, msg, wParam, lParam);
-
-        _CONTAINER_MSGHANDLER_IF
+        
         LRESULT result = pTab->handleSubclassMessage(msg, wParam, lParam);
         if (result != -1)
             return result;

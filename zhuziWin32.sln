@@ -9,8 +9,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WindowsProject1", "..\Windo
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ConsoleApplication1", "..\ConsoleApplication1\ConsoleApplication1.vcxproj", "{78203210-A71D-4888-A892-AF1F52842629}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Win32Test", "..\Win32Test\Win32Test.vcxproj", "{9478D03B-972F-4D12-BF31-D7658A1DB773}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "statistics", "..\statistics\statistics.vcxproj", "{57FABF0F-4E93-4C52-A9F4-4A85145A239D}"
 EndProject
 Global
@@ -45,14 +43,6 @@ Global
 		{78203210-A71D-4888-A892-AF1F52842629}.Release|x64.Build.0 = Release|x64
 		{78203210-A71D-4888-A892-AF1F52842629}.Release|x86.ActiveCfg = Release|Win32
 		{78203210-A71D-4888-A892-AF1F52842629}.Release|x86.Build.0 = Release|Win32
-		{9478D03B-972F-4D12-BF31-D7658A1DB773}.Debug|x64.ActiveCfg = Debug|x64
-		{9478D03B-972F-4D12-BF31-D7658A1DB773}.Debug|x64.Build.0 = Debug|x64
-		{9478D03B-972F-4D12-BF31-D7658A1DB773}.Debug|x86.ActiveCfg = Debug|Win32
-		{9478D03B-972F-4D12-BF31-D7658A1DB773}.Debug|x86.Build.0 = Debug|Win32
-		{9478D03B-972F-4D12-BF31-D7658A1DB773}.Release|x64.ActiveCfg = Release|x64
-		{9478D03B-972F-4D12-BF31-D7658A1DB773}.Release|x64.Build.0 = Release|x64
-		{9478D03B-972F-4D12-BF31-D7658A1DB773}.Release|x86.ActiveCfg = Release|Win32
-		{9478D03B-972F-4D12-BF31-D7658A1DB773}.Release|x86.Build.0 = Release|Win32
 		{57FABF0F-4E93-4C52-A9F4-4A85145A239D}.Debug|x64.ActiveCfg = Debug|x64
 		{57FABF0F-4E93-4C52-A9F4-4A85145A239D}.Debug|x64.Build.0 = Debug|x64
 		{57FABF0F-4E93-4C52-A9F4-4A85145A239D}.Debug|x86.ActiveCfg = Debug|Win32

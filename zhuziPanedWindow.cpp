@@ -315,7 +315,7 @@ namespace zhuzi {
         UINT_PTR uIdSubclass, DWORD_PTR dwRefData) {
         zhuziPanedWindow* pThis = (zhuziPanedWindow*)dwRefData;
         if (!pThis) return DefSubclassProc(hwnd, msg, wParam, lParam);
-        _CONTAINER_MSGHANDLER_IF
+       
         switch (msg) {
         case WM_SETCURSOR: {
             if (LOWORD(lParam) == HTCLIENT) {

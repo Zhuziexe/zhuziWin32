@@ -13,6 +13,8 @@
 #include "zhuziString.h"
 #include "zhuziImageList.h"
 #include "zhuziDragDrop.h"
+#include "zhuziType.h"
+#include "zhuziRgn.h"
 
 #ifndef NO_ZHUZICONTROLS_INCLUDES
 

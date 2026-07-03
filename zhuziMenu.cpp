@@ -146,8 +146,10 @@ namespace zhuzi {
 
         // 如果该窗口还没有安装静态消息钩子，则绑定一次
         if (!s_windowHooked[hwnd]) {
-            window->Bind(WM_COMMAND, [hwnd](zhuziMessage& msg) -> bool {
-                return MenuMessageHandler(hwnd, WM_COMMAND, msg.wParam, msg.lParam);
+            Bind(window, WM_COMMAND, [hwnd](zhuziMsg* msg) {
+                if (MenuMessageHandler(hwnd, WM_COMMAND, msg->wParam, msg->lParam)) {
+                    msg->handled = true;
+                }
                 });
             s_windowHooked[hwnd] = true;
         }

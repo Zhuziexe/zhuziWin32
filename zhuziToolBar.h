@@ -56,9 +56,12 @@ namespace zhuzi {
         static void releaseCmdId(int cmdId);
 
         void setButtonTooltip(int cmdId, const zhuziString& tooltip);
+
+        void setAutoTopDock(bool enable) { m_autoTopDock = enable; }
     private:
         HIMAGELIST m_himl;
         COLORREF   m_bgColor;
+        bool m_autoTopDock;
         HBRUSH     m_hBgBrush;
 
         static std::bitset<1000> s_cmdIdUsed;
@@ -66,6 +69,7 @@ namespace zhuzi {
         static void ReleaseCmdIdInternal(int cmdId);
 
         void autoSize();
+        void autoSizeF();
         void updateLayout();               // 更新位置和大小
         void updateBackground();
 

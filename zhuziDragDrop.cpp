@@ -207,9 +207,11 @@ namespace zhuzi {
 
         HWND wndHandle = parentWnd->getHandle();
         if (!g_windowBound[wndHandle]) {
-            // 改用 Bind（新版事件系统），回调返回 LRESULT
-            parentWnd->Bind(WM_ZHUZI_DROP, [](zhuziMessage& msg) -> bool {
-                return GlobalDropMessageHandler(msg.wParam, msg.lParam) == TRUE;
+            // 使用全局 Bind，回调接收 zhuziMsg*
+            Bind(parentWnd, WM_ZHUZI_DROP, [](zhuziMsg* msg) {
+                if (GlobalDropMessageHandler(msg->wParam, msg->lParam) == TRUE) {
+                    msg->handled = true;
+                }
                 });
             g_windowBound[wndHandle] = true;
         }
