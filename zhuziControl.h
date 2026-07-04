@@ -1,5 +1,4 @@
-﻿//这是一个注释
-#pragma once
+﻿#pragma once
 #include <windows.h>
 #include <map>
 #include <vector>
