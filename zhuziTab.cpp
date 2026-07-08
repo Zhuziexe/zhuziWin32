@@ -28,7 +28,7 @@ namespace zhuzi {
         icex.dwSize = sizeof(INITCOMMONCONTROLSEX);
         icex.dwICC = ICC_TAB_CLASSES;
         InitCommonControlsEx(&icex);
-
+        
         HWND hParent = m_parent ? m_parent->getHandle() : nullptr;
         // 创建时使用临时位置(0,0,0,0)，基类后续会通过applyLayout调整位置和大小
         m_hwnd = CreateWindowExW(0, WC_TABCONTROLW, L"",
