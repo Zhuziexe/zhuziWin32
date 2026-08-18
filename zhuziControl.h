@@ -13,6 +13,7 @@
 #include "zhuziRgn.h"
 #include "zhuziD2D.h"
 #include <uxtheme.h>
+#include <shellscalingapi.h>
 #include "zhuziType.h"
 #pragma comment(lib, "uxtheme.lib")
 

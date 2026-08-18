@@ -2,6 +2,8 @@
 #include <commctrl.h>
 #include <gdiplus.h>
 #include <objbase.h>
+#include <windows.h>
+#include <shellscalingapi.h>   // 添加这一行
 
 #pragma comment(lib, "comctl32.lib")
 #pragma comment(lib, "gdiplus.lib")
@@ -18,6 +20,21 @@ namespace zhuzi {
         initCommonControls();
         initGdiplus();
         OleInitialize(nullptr);
+        HMODULE hShcore = LoadLibraryW(L"shcore.dll");
+        if (hShcore) {
+            // 使用 typedef 定义函数指针类型
+            typedef HRESULT(WINAPI* SetProcessDpiAwarenessFn)(PROCESS_DPI_AWARENESS);
+            SetProcessDpiAwarenessFn pfn = (SetProcessDpiAwarenessFn)GetProcAddress(hShcore, "SetProcessDpiAwareness");
+            if (pfn) {
+                pfn(PROCESS_DPI_UNAWARE);  // 关键：系统级 DPI 感知
+            }
+            FreeLibrary(hShcore);
+        }
+        else {
+            // 回退到旧 API（支持 Windows 7）
+            SetProcessDPIAware();
+        }
+
     }
 
     zhuziInstance::~zhuziInstance() {

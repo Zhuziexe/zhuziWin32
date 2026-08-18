@@ -26,17 +26,17 @@ namespace zhuzi {
         }
 
         Gdiplus::Color toGdiplusColor() const {
-            return Gdiplus::Color(m_alpha, GetR(), GetG(), GetB());
+            return Gdiplus::Color(m_alpha, getR(), getG(), getB());
         }
         operator Gdiplus::Color() const { return toGdiplusColor(); }
 
         COLORREF toCOLORREF() const { return RGB(m_r,m_g,m_b); }
         operator COLORREF() const { return RGB(m_r,m_g,m_b); }
 
-        BYTE GetR() const { return m_r; }
-        BYTE GetG() const { return m_g; }
-        BYTE GetB() const { return m_b; }
-        BYTE GetA() const { return m_alpha; }
+        BYTE getR() const { return m_r; }
+        BYTE getG() const { return m_g; }
+        BYTE getB() const { return m_b; }
+        BYTE getA() const { return m_alpha; }
 
         void setAlpha(BYTE a) { m_alpha = a; }
 

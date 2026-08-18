@@ -557,17 +557,20 @@ namespace zhuzi {
 
     bool zhuziWindow::create(const zhuziString& title, int x, int y, int w, int h, DWORD style) {
         m_windowTitle = title;
-        return zhuziControl::create(x, y, w, h, style);
+        // 基类 create 会调用 onCreate，创建窗口
+        if (!zhuziControl::create(x, y, w, h, style)) {
+            return false;
+        }
+        return true;
     }
 
+    // 原有的 create 重载（居中）
     bool zhuziWindow::create(const zhuziString& title, int width, int height, DWORD style) {
-        // 获取主显示器尺寸
         int screenWidth = GetSystemMetrics(SM_CXSCREEN);
         int screenHeight = GetSystemMetrics(SM_CYSCREEN);
-        // 居中计算
         int x = (screenWidth - width) / 2;
         int y = (screenHeight - height) / 2;
-        // 调用原有的重载
+        // 调用上述重载，缩放逻辑会在其中执行
         return create(title, x, y, width, height, style);
     }
 
