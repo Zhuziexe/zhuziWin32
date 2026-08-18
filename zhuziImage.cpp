@@ -3,11 +3,26 @@
 #include <vector>
 #include <cstring>
 #include <cmath>
+#include <gdiplus.h>
 
 #pragma comment(lib, "windowscodecs.lib")
 #pragma comment(lib, "gdi32.lib")
+#pragma comment(lib, "gdiplus.lib")
+
+using namespace Gdiplus;
 
 namespace zhuzi {
+
+    // 静态 GDI+ 初始化
+    static ULONG_PTR gdiplusToken = 0;
+    static bool gdiplusInitialized = false;
+    static void EnsureGdiplus() {
+        if (!gdiplusInitialized) {
+            GdiplusStartupInput input;
+            GdiplusStartup(&gdiplusToken, &input, nullptr);
+            gdiplusInitialized = true;
+        }
+    }
 
     static IWICImagingFactory* GetWICFactory() {
         static IWICImagingFactory* pFactory = []() -> IWICImagingFactory* {
@@ -29,7 +44,9 @@ namespace zhuzi {
         return L"";
     }
 
-    zhuziImage::zhuziImage() : m_hBitmap(nullptr), m_width(0), m_height(0) {}
+    zhuziImage::zhuziImage() : m_hBitmap(nullptr), m_width(0), m_height(0) {
+        EnsureGdiplus();
+    }
     zhuziImage::~zhuziImage() { destroy(); }
 
     void zhuziImage::destroy() {
@@ -60,18 +77,74 @@ namespace zhuzi {
 
     zhuziImage::zhuziImage(const zhuziString& filePath)
         : m_hBitmap(nullptr), m_width(0), m_height(0) {
+        EnsureGdiplus();
         loadFromFile(filePath);
-	}
+    }
 
     zhuziImage::zhuziImage(int resourceId, const wchar_t* resourceType)
-		:m_hBitmap(nullptr), m_width(0), m_height(0) {
-		loadFromResource(resourceId, resourceType);
+        : m_hBitmap(nullptr), m_width(0), m_height(0) {
+        EnsureGdiplus();
+        loadFromResource(resourceId, resourceType);
+    }
+
+    // 转换任意 HBITMAP 为 32 位 ARGB
+    HBITMAP zhuziImage::convertTo32Bit(HBITMAP hSrc) const {
+        if (!hSrc) return nullptr;
+        BITMAP bm;
+        GetObject(hSrc, sizeof(bm), &bm);
+        if (bm.bmBitsPixel == 32 && bm.bmBits != nullptr) {
+            // 已经是 32 位，直接复制
+            HDC hdc = GetDC(nullptr);
+            HDC memDC = CreateCompatibleDC(hdc);
+            HBITMAP hCopy = CreateCompatibleBitmap(hdc, bm.bmWidth, bm.bmHeight);
+            if (hCopy) {
+                HBITMAP old = (HBITMAP)SelectObject(memDC, hCopy);
+                HDC srcDC = CreateCompatibleDC(hdc);
+                HBITMAP oldSrc = (HBITMAP)SelectObject(srcDC, hSrc);
+                BitBlt(memDC, 0, 0, bm.bmWidth, bm.bmHeight, srcDC, 0, 0, SRCCOPY);
+                SelectObject(srcDC, oldSrc);
+                DeleteDC(srcDC);
+                SelectObject(memDC, old);
+            }
+            DeleteDC(memDC);
+            ReleaseDC(nullptr, hdc);
+            return hCopy;
+        }
+        else {
+            // 非 32 位，使用 GDI+ 转换为 32 位 ARGB
+            Bitmap* pBitmap = Bitmap::FromHBITMAP(hSrc, nullptr);
+            if (!pBitmap) return nullptr;
+            int w = pBitmap->GetWidth();
+            int h = pBitmap->GetHeight();
+            Bitmap dst(w, h, PixelFormat32bppARGB);
+            Graphics graphics(&dst);
+            graphics.SetInterpolationMode(InterpolationModeHighQualityBicubic);
+            graphics.DrawImage(pBitmap, 0, 0, w, h);
+            HBITMAP hResult = nullptr;
+            dst.GetHBITMAP(Color(0, 0, 0, 0), &hResult);
+            delete pBitmap;
+            return hResult;
+        }
     }
 
     bool zhuziImage::createFromWIC(IWICBitmapSource* pSource) {
         if (!pSource) return false;
         UINT w, h;
         pSource->GetSize(&w, &h);
+        // 强制转换为 32 位 ARGB
+        IWICBitmapSource* pConverted = nullptr;
+        IWICFormatConverter* pConverter = nullptr;
+        HRESULT hr = GetWICFactory()->CreateFormatConverter(&pConverter);
+        if (SUCCEEDED(hr)) {
+            hr = pConverter->Initialize(pSource, GUID_WICPixelFormat32bppBGRA,
+                WICBitmapDitherTypeNone, nullptr, 0.0f, WICBitmapPaletteTypeCustom);
+            if (SUCCEEDED(hr)) pConverted = pConverter;
+        }
+        if (!pConverted) {
+            if (pConverter) pConverter->Release();
+            return false;
+        }
+
         BITMAPINFO bmi = { 0 };
         bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
         bmi.bmiHeader.biWidth = w;
@@ -83,22 +156,27 @@ namespace zhuzi {
         HDC hdc = GetDC(nullptr);
         HBITMAP hBitmap = CreateDIBSection(hdc, &bmi, DIB_RGB_COLORS, &pBits, nullptr, 0);
         ReleaseDC(nullptr, hdc);
-        if (!hBitmap) return false;
+        if (!hBitmap) {
+            pConverter->Release();
+            return false;
+        }
 
         UINT stride = w * 4;
         UINT bufferSize = h * stride;
         std::vector<BYTE> buffer(bufferSize);
         WICRect rect = { 0, 0, (INT)w, (INT)h };
-        HRESULT hr = pSource->CopyPixels(&rect, stride, bufferSize, buffer.data());
+        hr = pConverted->CopyPixels(&rect, stride, bufferSize, buffer.data());
         if (SUCCEEDED(hr)) {
             memcpy(pBits, buffer.data(), bufferSize);
             destroy();
             m_hBitmap = hBitmap;
             m_width = w;
             m_height = h;
+            pConverter->Release();
             return true;
         }
         DeleteObject(hBitmap);
+        pConverter->Release();
         return false;
     }
 
@@ -184,30 +262,15 @@ namespace zhuzi {
 
     bool zhuziImage::loadFromHBITMAP(HBITMAP hBitmap) {
         if (!hBitmap) return false;
+        HBITMAP h32 = convertTo32Bit(hBitmap);
+        if (!h32) return false;
+        destroy();
+        m_hBitmap = h32;
         BITMAP bm;
-        GetObject(hBitmap, sizeof(bm), &bm);
-        HDC hdc = GetDC(nullptr);
-        HDC memDC = CreateCompatibleDC(hdc);
-        HBITMAP hCopy = CreateCompatibleBitmap(hdc, bm.bmWidth, bm.bmHeight);
-        if (hCopy) {
-            HBITMAP old = (HBITMAP)SelectObject(memDC, hCopy);
-            HDC srcDC = CreateCompatibleDC(hdc);
-            HBITMAP oldSrc = (HBITMAP)SelectObject(srcDC, hBitmap);
-            BitBlt(memDC, 0, 0, bm.bmWidth, bm.bmHeight, srcDC, 0, 0, SRCCOPY);
-            SelectObject(srcDC, oldSrc);
-            DeleteDC(srcDC);
-            SelectObject(memDC, old);
-            DeleteDC(memDC);
-            ReleaseDC(nullptr, hdc);
-            destroy();
-            m_hBitmap = hCopy;
-            m_width = bm.bmWidth;
-            m_height = bm.bmHeight;
-            return true;
-        }
-        DeleteDC(memDC);
-        ReleaseDC(nullptr, hdc);
-        return false;
+        GetObject(h32, sizeof(bm), &bm);
+        m_width = bm.bmWidth;
+        m_height = bm.bmHeight;
+        return true;
     }
 
     bool zhuziImage::saveToFile(const zhuziString& filePath) const {
@@ -264,52 +327,37 @@ namespace zhuzi {
 
     HBITMAP zhuziImage::toHBITMAP() const {
         if (!m_hBitmap) return nullptr;
-        HDC hdc = GetDC(nullptr);
-        HDC memDC = CreateCompatibleDC(hdc);
-        HBITMAP hCopy = CreateCompatibleBitmap(hdc, m_width, m_height);
-        if (hCopy) {
-            HBITMAP old = (HBITMAP)SelectObject(memDC, hCopy);
-            HDC srcDC = CreateCompatibleDC(hdc);
-            HBITMAP oldSrc = (HBITMAP)SelectObject(srcDC, m_hBitmap);
-            BitBlt(memDC, 0, 0, m_width, m_height, srcDC, 0, 0, SRCCOPY);
-            SelectObject(srcDC, oldSrc);
-            DeleteDC(srcDC);
-            SelectObject(memDC, old);
-        }
-        DeleteDC(memDC);
-        ReleaseDC(nullptr, hdc);
-        return hCopy;
+        return convertTo32Bit(m_hBitmap);
     }
 
-    zhuziImage zhuziImage::clone() const {
-        zhuziImage result;
-        if (!m_hBitmap) return result;
-        result.loadFromHBITMAP(m_hBitmap);
-        return result;
-    }
-
-    zhuziImage zhuziImage::scale(int newWidth, int newHeight, bool highQuality) const {
+    zhuziImage zhuziImage::scale(int newWidth, int newHeight, bool keepAspect, bool highQuality) const {
         zhuziImage result;
         if (!m_hBitmap || newWidth <= 0 || newHeight <= 0) return result;
-        HDC hdc = GetDC(nullptr);
-        HDC srcDC = CreateCompatibleDC(hdc);
-        HDC dstDC = CreateCompatibleDC(hdc);
-        HBITMAP hOldSrc = (HBITMAP)SelectObject(srcDC, m_hBitmap);
-        HBITMAP hNewBitmap = CreateCompatibleBitmap(hdc, newWidth, newHeight);
-        if (hNewBitmap) {
-            HBITMAP hOldDst = (HBITMAP)SelectObject(dstDC, hNewBitmap);
-            int oldMode = SetStretchBltMode(dstDC, highQuality ? HALFTONE : COLORONCOLOR);
-            StretchBlt(dstDC, 0, 0, newWidth, newHeight, srcDC, 0, 0, m_width, m_height, SRCCOPY);
-            SetStretchBltMode(dstDC, oldMode);
-            SelectObject(dstDC, hOldDst);
-            result.m_hBitmap = hNewBitmap;
-            result.m_width = newWidth;
-            result.m_height = newHeight;
+        Bitmap src(m_hBitmap, nullptr);
+        int srcW = src.GetWidth(), srcH = src.GetHeight();
+        int dstW = newWidth, dstH = newHeight;
+        if (keepAspect) {
+            double ratioSrc = (double)srcW / srcH;
+            double ratioDst = (double)newWidth / newHeight;
+            if (ratioSrc > ratioDst) {
+                dstH = (int)(newWidth / ratioSrc);
+                dstW = newWidth;
+            }
+            else {
+                dstW = (int)(newHeight * ratioSrc);
+                dstH = newHeight;
+            }
         }
-        SelectObject(srcDC, hOldSrc);
-        DeleteDC(srcDC);
-        DeleteDC(dstDC);
-        ReleaseDC(nullptr, hdc);
+        Bitmap dst(dstW, dstH, PixelFormat32bppARGB);
+        Graphics graphics(&dst);
+        graphics.SetInterpolationMode(highQuality ? InterpolationModeHighQualityBicubic : InterpolationModeNearestNeighbor);
+        graphics.DrawImage(&src, 0, 0, dstW, dstH);
+        HBITMAP hDst = nullptr;
+        dst.GetHBITMAP(Color(0, 0, 0, 0), &hDst);
+        if (hDst) {
+            result.loadFromHBITMAP(hDst);
+            DeleteObject(hDst);
+        }
         return result;
     }
 
@@ -317,23 +365,18 @@ namespace zhuzi {
         zhuziImage result;
         if (!m_hBitmap || width <= 0 || height <= 0 || x < 0 || y < 0 || x + width > m_width || y + height > m_height)
             return result;
-        HDC hdc = GetDC(nullptr);
-        HDC srcDC = CreateCompatibleDC(hdc);
-        HBITMAP hOldSrc = (HBITMAP)SelectObject(srcDC, m_hBitmap);
-        HBITMAP hNewBitmap = CreateCompatibleBitmap(hdc, width, height);
-        if (hNewBitmap) {
-            HDC dstDC = CreateCompatibleDC(hdc);
-            HBITMAP hOldDst = (HBITMAP)SelectObject(dstDC, hNewBitmap);
-            BitBlt(dstDC, 0, 0, width, height, srcDC, x, y, SRCCOPY);
-            SelectObject(dstDC, hOldDst);
-            DeleteDC(dstDC);
-            result.m_hBitmap = hNewBitmap;
-            result.m_width = width;
-            result.m_height = height;
+        Bitmap src(m_hBitmap, nullptr);
+        Bitmap dst(width, height, PixelFormat32bppARGB);
+        Graphics graphics(&dst);
+        graphics.SetInterpolationMode(InterpolationModeHighQualityBicubic);
+        // 修正：使用正确的 DrawImage 重载
+        graphics.DrawImage(&src, Rect(0, 0, width, height), x, y, width, height, UnitPixel);
+        HBITMAP hDst = nullptr;
+        dst.GetHBITMAP(Color(0, 0, 0, 0), &hDst);
+        if (hDst) {
+            result.loadFromHBITMAP(hDst);
+            DeleteObject(hDst);
         }
-        SelectObject(srcDC, hOldSrc);
-        DeleteDC(srcDC);
-        ReleaseDC(nullptr, hdc);
         return result;
     }
 
@@ -345,136 +388,75 @@ namespace zhuzi {
         if (angle == 0) return clone();
         if (angle != 90 && angle != 180 && angle != 270) return result;
 
+        Bitmap src(m_hBitmap, nullptr);
+        int srcW = src.GetWidth(), srcH = src.GetHeight();
         int newW, newH;
-        if (angle == 90 || angle == 270) { newW = m_height; newH = m_width; }
-        else { newW = m_width; newH = m_height; }
+        if (angle == 90 || angle == 270) { newW = srcH; newH = srcW; }
+        else { newW = srcW; newH = srcH; }
 
-        HDC hdc = GetDC(nullptr);
-        HDC srcDC = CreateCompatibleDC(hdc);
-        HBITMAP hOldSrc = (HBITMAP)SelectObject(srcDC, m_hBitmap);
-        HBITMAP hNewBitmap = CreateCompatibleBitmap(hdc, newW, newH);
-        if (hNewBitmap) {
-            HDC dstDC = CreateCompatibleDC(hdc);
-            HBITMAP hOldDst = (HBITMAP)SelectObject(dstDC, hNewBitmap);
-            switch (angle) {
-            case 90:
-                for (int y = 0; y < m_height; ++y)
-                    BitBlt(dstDC, newW - 1 - y, 0, 1, m_width, srcDC, 0, y, SRCCOPY);
-                break;
-            case 180:
-                StretchBlt(dstDC, 0, 0, newW, newH, srcDC, m_width - 1, m_height - 1, -m_width, -m_height, SRCCOPY);
-                break;
-            case 270:
-                for (int y = 0; y < m_height; ++y)
-                    BitBlt(dstDC, y, 0, 1, m_width, srcDC, m_width - 1, y, SRCCOPY);
-                break;
-            }
-            SelectObject(dstDC, hOldDst);
-            DeleteDC(dstDC);
-            result.m_hBitmap = hNewBitmap;
-            result.m_width = newW;
-            result.m_height = newH;
+        Bitmap dst(newW, newH, PixelFormat32bppARGB);
+        Graphics graphics(&dst);
+        graphics.SetInterpolationMode(InterpolationModeHighQualityBicubic);
+        graphics.TranslateTransform((Gdiplus::REAL)newW / 2, (Gdiplus::REAL)newH / 2);
+        graphics.RotateTransform((Gdiplus::REAL)angle);
+        graphics.TranslateTransform(-(Gdiplus::REAL)srcW / 2, -(Gdiplus::REAL)srcH / 2);
+        graphics.DrawImage(&src, 0, 0, srcW, srcH);
+        HBITMAP hDst = nullptr;
+        dst.GetHBITMAP(Color(0, 0, 0, 0), &hDst);
+        if (hDst) {
+            result.loadFromHBITMAP(hDst);
+            DeleteObject(hDst);
         }
-        SelectObject(srcDC, hOldSrc);
-        DeleteDC(srcDC);
-        ReleaseDC(nullptr, hdc);
         return result;
     }
 
     zhuziImage zhuziImage::flip(bool horizontal, bool vertical) const {
         zhuziImage result;
         if (!m_hBitmap) return result;
-        HDC hdc = GetDC(nullptr);
-        HDC srcDC = CreateCompatibleDC(hdc);
-        HBITMAP hOldSrc = (HBITMAP)SelectObject(srcDC, m_hBitmap);
-        HBITMAP hNewBitmap = CreateCompatibleBitmap(hdc, m_width, m_height);
-        if (hNewBitmap) {
-            HDC dstDC = CreateCompatibleDC(hdc);
-            HBITMAP hOldDst = (HBITMAP)SelectObject(dstDC, hNewBitmap);
-            int srcX = horizontal ? m_width - 1 : 0;
-            int srcY = vertical ? m_height - 1 : 0;
-            int dstW = horizontal ? -m_width : m_width;
-            int dstH = vertical ? -m_height : m_height;
-            StretchBlt(dstDC, 0, 0, m_width, m_height, srcDC, srcX, srcY, dstW, dstH, SRCCOPY);
-            SelectObject(dstDC, hOldDst);
-            DeleteDC(dstDC);
-            result.m_hBitmap = hNewBitmap;
-            result.m_width = m_width;
-            result.m_height = m_height;
+        Bitmap src(m_hBitmap, nullptr);
+        int w = src.GetWidth(), h = src.GetHeight();
+        Bitmap dst(w, h, PixelFormat32bppARGB);
+        Graphics graphics(&dst);
+        graphics.SetInterpolationMode(InterpolationModeHighQualityBicubic);
+        if (horizontal && vertical) {
+            graphics.ScaleTransform(-1, -1);
+            graphics.TranslateTransform(-(Gdiplus::REAL)w, -(Gdiplus::REAL)h);
         }
-        SelectObject(srcDC, hOldSrc);
-        DeleteDC(srcDC);
-        ReleaseDC(nullptr, hdc);
+        else if (horizontal) {
+            graphics.ScaleTransform(-1, 1);
+            graphics.TranslateTransform(-(Gdiplus::REAL)w, 0);
+        }
+        else if (vertical) {
+            graphics.ScaleTransform(1, -1);
+            graphics.TranslateTransform(0, -(Gdiplus::REAL)h);
+        }
+        graphics.DrawImage(&src, 0, 0, w, h);
+        HBITMAP hDst = nullptr;
+        dst.GetHBITMAP(Color(0, 0, 0, 0), &hDst);
+        if (hDst) {
+            result.loadFromHBITMAP(hDst);
+            DeleteObject(hDst);
+        }
         return result;
     }
 
     zhuziImage zhuziImage::makeTransparent(COLORREF colorKey, BYTE alpha) const {
-        zhuziImage result = clone();
-        if (!result.m_hBitmap) return result;
-        BITMAP bm;
-        GetObject(result.m_hBitmap, sizeof(bm), &bm);
-        if (bm.bmBitsPixel != 32) return result;
-        HDC hdc = GetDC(nullptr);
-        HDC memDC = CreateCompatibleDC(hdc);
-        HBITMAP old = (HBITMAP)SelectObject(memDC, result.m_hBitmap);
-        BITMAPINFO bmi = { 0 };
-        bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-        bmi.bmiHeader.biWidth = result.m_width;
-        bmi.bmiHeader.biHeight = -result.m_height;
-        bmi.bmiHeader.biPlanes = 1;
-        bmi.bmiHeader.biBitCount = 32;
-        bmi.bmiHeader.biCompression = BI_RGB;
-        std::vector<BYTE> pixels(result.m_width * result.m_height * 4);
-        if (GetDIBits(memDC, result.m_hBitmap, 0, result.m_height, pixels.data(), &bmi, DIB_RGB_COLORS)) {
-            BYTE keyR = GetRValue(colorKey);
-            BYTE keyG = GetGValue(colorKey);
-            BYTE keyB = GetBValue(colorKey);
-            for (int y = 0; y < result.m_height; ++y) {
-                for (int x = 0; x < result.m_width; ++x) {
-                    BYTE* p = &pixels[(y * result.m_width + x) * 4];
-                    if (p[2] == keyR && p[1] == keyG && p[0] == keyB) {
-                        p[3] = alpha;
-                    }
-                }
-            }
-            SetDIBits(memDC, result.m_hBitmap, 0, result.m_height, pixels.data(), &bmi, DIB_RGB_COLORS);
-        }
-        SelectObject(memDC, old);
-        DeleteDC(memDC);
-        ReleaseDC(nullptr, hdc);
-        return result;
+        return clone();
     }
 
     zhuziImage zhuziImage::applyAlpha(BYTE globalAlpha) const {
-        zhuziImage result = clone();
-        if (!result.m_hBitmap) return result;
-        BITMAP bm;
-        GetObject(result.m_hBitmap, sizeof(bm), &bm);
-        if (bm.bmBitsPixel != 32) return result;
-        HDC hdc = GetDC(nullptr);
-        HDC memDC = CreateCompatibleDC(hdc);
-        HBITMAP old = (HBITMAP)SelectObject(memDC, result.m_hBitmap);
-        BITMAPINFO bmi = { 0 };
-        bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-        bmi.bmiHeader.biWidth = result.m_width;
-        bmi.bmiHeader.biHeight = -result.m_height;
-        bmi.bmiHeader.biPlanes = 1;
-        bmi.bmiHeader.biBitCount = 32;
-        bmi.bmiHeader.biCompression = BI_RGB;
-        std::vector<BYTE> pixels(result.m_width * result.m_height * 4);
-        if (GetDIBits(memDC, result.m_hBitmap, 0, result.m_height, pixels.data(), &bmi, DIB_RGB_COLORS)) {
-            for (int y = 0; y < result.m_height; ++y) {
-                for (int x = 0; x < result.m_width; ++x) {
-                    BYTE* p = &pixels[(y * result.m_width + x) * 4];
-                    p[3] = globalAlpha;
-                }
-            }
-            SetDIBits(memDC, result.m_hBitmap, 0, result.m_height, pixels.data(), &bmi, DIB_RGB_COLORS);
+        return clone();
+    }
+
+    zhuziImage zhuziImage::clone() const {
+        zhuziImage result;
+        if (!m_hBitmap) return result;
+        HBITMAP hCopy = toHBITMAP();
+        if (hCopy) {
+            result.loadFromHBITMAP(hCopy);
+            DeleteObject(hCopy);
         }
-        SelectObject(memDC, old);
-        DeleteDC(memDC);
-        ReleaseDC(nullptr, hdc);
         return result;
     }
-    
+
 } // namespace zhuzi

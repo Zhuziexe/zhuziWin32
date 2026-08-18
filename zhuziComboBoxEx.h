@@ -46,5 +46,5 @@ namespace zhuzi {
         static LRESULT CALLBACK ComboBoxExSubclassProc(HWND hwnd, UINT msg,
             WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
     };
-    
+
 } // namespace zhuzi

@@ -32,7 +32,7 @@ namespace zhuzi {
         HWND hParent = m_parent ? m_parent->getHandle() : nullptr;
         DWORD comboStyle = WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL;
         m_hwnd = CreateWindowExW(0, WC_COMBOBOXEX, L"", comboStyle,
-            0, 0, 100, 100,
+            0, 0, 100, 300,
             hParent, (HMENU)(INT_PTR)m_id,
             zhuziInstance::getHandle(), nullptr);
 

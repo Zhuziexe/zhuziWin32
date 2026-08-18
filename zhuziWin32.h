@@ -15,6 +15,8 @@
 #include "zhuziDragDrop.h"
 #include "zhuziType.h"
 #include "zhuziRgn.h"
+#include "zhuziArray.h"
+#include "zhuziPair.h"
 
 #ifndef NO_ZHUZICONTROLS_INCLUDES
 

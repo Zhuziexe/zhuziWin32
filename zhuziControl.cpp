@@ -335,7 +335,10 @@ namespace zhuzi {
     }
 
     void zhuziControl::setText(const zhuziString& text) {
-        if (m_hwnd) SetWindowTextW(m_hwnd, text.c_str());
+        if (m_hwnd) {
+            SetWindowTextW(m_hwnd, text.c_str());
+            Invalidate();
+        }
     }
 
     zhuziString zhuziControl::getText() const {
@@ -402,9 +405,13 @@ namespace zhuzi {
     }
 
     void zhuziControl::setLayoutParamOnly(int x, int y, int w, int h) {
-        m_layoutType = LayoutType::Absolute;
         m_layoutParam[0] = x; m_layoutParam[1] = y;
         m_layoutParam[2] = w; m_layoutParam[3] = h;
+    }
+
+    const int* zhuziControl::getLayoutParamPtr() const
+    {
+        return m_layoutParam;
     }
 
     LRESULT zhuziControl::SendWindowMessage(UINT msg, WPARAM wParam, LPARAM lParam) const {
@@ -553,6 +560,17 @@ namespace zhuzi {
         return zhuziControl::create(x, y, w, h, style);
     }
 
+    bool zhuziWindow::create(const zhuziString& title, int width, int height, DWORD style) {
+        // 获取主显示器尺寸
+        int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+        int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+        // 居中计算
+        int x = (screenWidth - width) / 2;
+        int y = (screenHeight - height) / 2;
+        // 调用原有的重载
+        return create(title, x, y, width, height, style);
+    }
+
     bool zhuziWindow::onCreate(DWORD style) {
         if (!RegisterWindowClass()) return false;
         m_hwnd = CreateWindowExW(0, WINDOW_CLASS_NAME, m_windowTitle.c_str(), style,
@@ -633,7 +651,6 @@ namespace zhuzi {
     }
 
     LRESULT zhuziWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
-        // 先尝试派发消息到全局绑定（冒泡）
         zhuziMsg zmsg{ msg, wParam, lParam, 0, false };
         if (DispatchMessageToControl(m_hwnd, zmsg)) {
             return zmsg.result;
@@ -681,4 +698,6 @@ namespace zhuzi {
     zhuziControl* GetControlFromHWND(HWND hwnd) {
         return reinterpret_cast<zhuziControl*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
     }
+
+
 } // namespace zhuzi

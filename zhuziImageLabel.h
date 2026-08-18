@@ -24,6 +24,7 @@ namespace zhuzi {
         bool loadImage(const zhuziString& filePath);
         bool loadImage(int resourceId, const wchar_t* resourceType = L"PNG");
         bool loadImageFromMemory(const void* data, size_t size);
+        void setImage(const zhuziImage& image);
         void clearImage();
 
         // 设置缩放模式

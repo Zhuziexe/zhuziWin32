@@ -59,6 +59,7 @@ namespace zhuzi {
         void setGeometry(double xPercent, double yPercent, double widthPercent, double heightPercent);
         void setFocus();
         void setLayoutParamOnly(int x, int y, int w, int h);
+        const int* getLayoutParamPtr() const;
         LRESULT SendWindowMessage(UINT msg, WPARAM wParam = NULL, LPARAM lParam = NULL) const;
         void setWindowTheme(const zhuziString themeName);
         void setWindowTheme(const zhuziString themeName, const zhuziString subIdList);
@@ -117,11 +118,12 @@ namespace zhuzi {
         void initCreate(LayoutType type);
     };
 
-    // ȫ�ְ󶨺������������أ�
     int Bind(zhuziControl* pCtrl, UINT uMsg, std::function<void(zhuziMsg*)> callback);
     int Bind(zhuziControl* pCtrl, UINT uMsg, WPARAM wParam, std::function<void(zhuziMsg*)> callback);
     void Unbind(int handlerId);
     void Unbind(zhuziControl* pCtrl, UINT uMsg);
+    // 分发消息到控件绑定处理器，返回 true 表示消息已被处理
+    bool DispatchMessageToControl(HWND hwnd, zhuziMsg& msg);
 
     zhuziWindow* findParentWindow(zhuziControl* ctrl);
 
@@ -132,6 +134,7 @@ namespace zhuzi {
         zhuziWindow();
         virtual ~zhuziWindow();
         bool create(const zhuziString& title, int x, int y, int width, int height, DWORD style = WS_OVERLAPPEDWINDOW);
+        bool create(const zhuziString& title, int width, int height, DWORD style = WS_OVERLAPPEDWINDOW);
         virtual bool onCreate(DWORD style) override;
         virtual void destroy() override;
         void show(int cmdShow = SW_SHOW);

@@ -1,9 +1,10 @@
-#include "zhuziString.h"
+ï»¿#include "zhuziString.h"
 #include <windows.h>
 #include <cstring>
 #include <algorithm>
+#include <string>
+#include <iostream>
 
-#define MULTIBYTE2WCHAR_CP CP_ACP
 namespace zhuzi {
 
     static size_t wcslen_safe(const wchar_t* str) {
@@ -19,14 +20,31 @@ namespace zhuzi {
             empty[0] = L'\0';
             return empty;
         }
-        int len = MultiByteToWideChar(MULTIBYTE2WCHAR_CP, 0, utf8, -1, nullptr, 0);
+        int len = MultiByteToWideChar(CP_UTF8, 0, utf8, -1, nullptr, 0);
         if (len <= 0) {
             wchar_t* empty = new wchar_t[1];
             empty[0] = L'\0';
             return empty;
         }
         wchar_t* wstr = new wchar_t[len];
-        MultiByteToWideChar(MULTIBYTE2WCHAR_CP, 0, utf8, -1, wstr, len);
+        MultiByteToWideChar(CP_UTF8, 0, utf8, -1, wstr, len);
+        return wstr;
+    }
+
+    static wchar_t* acp_to_wchar(const char* ansi) {
+        if (!ansi || !*ansi) {
+            wchar_t* empty = new wchar_t[1];
+            empty[0] = L'\0';
+            return empty;
+        }
+        int len = MultiByteToWideChar(CP_ACP, 0, ansi, -1, nullptr, 0);
+        if (len <= 0) {
+            wchar_t* empty = new wchar_t[1];
+            empty[0] = L'\0';
+            return empty;
+        }
+        wchar_t* wstr = new wchar_t[len];
+        MultiByteToWideChar(CP_ACP, 0, ansi, -1, wstr, len);
         return wstr;
     }
 
@@ -47,6 +65,7 @@ namespace zhuzi {
         return utf8;
     }
 
+    // ---------- æ ¸å¿ƒå®ç° ----------
     void zhuziString::allocate(size_t capacity) {
         m_data = new wchar_t[capacity + 1];
         m_capacity = capacity;
@@ -65,10 +84,8 @@ namespace zhuzi {
 
     void zhuziString::copyFrom(const wchar_t* src, size_t len) {
         if (len == 0) {
-            ensureCapacity(0); // È·±£ÖÁÉÙÓĞÒ»¸ö×Ö·ûµÄ¿Õ¼ä
-            if (!m_data) {
-                allocate(0);   // Èç¹û ensureCapacity Ã»ÓĞ·ÖÅä£¨ÒòÎª capacity ¿ÉÄÜÒÑ¹»£©£¬µ« m_data Îª¿ÕÔòÊÖ¶¯·ÖÅä
-            }
+            ensureCapacity(0);
+            if (!m_data) allocate(0);
             m_data[0] = L'\0';
             m_len = 0;
             return;
@@ -101,20 +118,22 @@ namespace zhuzi {
         m_capacity = newCap;
     }
 
+    // ---------- æ„é€ å‡½æ•° ----------
     zhuziString::zhuziString() : m_data(nullptr), m_len(0), m_capacity(0) {
         allocate(0);
-    }
-
-    zhuziString::zhuziString(const char* str) : m_data(nullptr), m_len(0), m_capacity(0) {
-        wchar_t* wstr = utf8_to_wchar(str);
-        size_t len = wcslen_safe(wstr);
-        copyFrom(wstr, len);
-        delete[] wstr;
     }
 
     zhuziString::zhuziString(const wchar_t* str) : m_data(nullptr), m_len(0), m_capacity(0) {
         size_t len = wcslen_safe(str);
         copyFrom(str, len);
+    }
+
+    zhuziString::zhuziString(const zhuziString& other) : m_data(nullptr), m_len(0), m_capacity(0) {
+        copyFrom(other.m_data, other.m_len);
+    }
+
+    zhuziString::zhuziString(zhuziString&& other) noexcept : m_data(nullptr), m_len(0), m_capacity(0) {
+        moveFrom(std::move(other));
     }
 
     zhuziString::zhuziString(size_t count, wchar_t ch) : m_data(nullptr), m_len(0), m_capacity(0) {
@@ -128,26 +147,34 @@ namespace zhuzi {
         m_len = count;
     }
 
-    zhuziString::zhuziString(const zhuziString& other) : m_data(nullptr), m_len(0), m_capacity(0) {
-        copyFrom(other.m_data, other.m_len);
-    }
-
-    zhuziString::zhuziString(zhuziString&& other) noexcept : m_data(nullptr), m_len(0), m_capacity(0) {
-        moveFrom(std::move(other));
-    }
-
     zhuziString::~zhuziString() {
         release();
     }
 
-    zhuziString& zhuziString::operator=(const char* str) {
-        zhuziString temp(str);
-        std::swap(m_data, temp.m_data);
-        std::swap(m_len, temp.m_len);
-        std::swap(m_capacity, temp.m_capacity);
-        return *this;
+    // ---------- é™æ€å·¥å‚ ----------
+    zhuziString zhuziString::FromUTF8(const char* utf8) {
+        wchar_t* wstr = utf8_to_wchar(utf8);
+        zhuziString result(wstr);
+        delete[] wstr;
+        return result;
     }
 
+    zhuziString zhuziString::FromUTF8(const std::string& utf8) {
+        return FromUTF8(utf8.c_str());
+    }
+
+    zhuziString zhuziString::FromACP(const char* ansi) {
+        wchar_t* wstr = acp_to_wchar(ansi);
+        zhuziString result(wstr);
+        delete[] wstr;
+        return result;
+    }
+
+    zhuziString zhuziString::FromACP(const std::string& ansi) {
+        return FromACP(ansi.c_str());
+    }
+
+    // ---------- èµ‹å€¼ ----------
     zhuziString& zhuziString::operator=(const wchar_t* str) {
         zhuziString temp(str);
         std::swap(m_data, temp.m_data);
@@ -173,14 +200,13 @@ namespace zhuzi {
         return *this;
     }
 
+    // ---------- å®¹é‡ ----------
     size_t zhuziString::size() const { return m_len; }
     size_t zhuziString::length() const { return m_len; }
     bool zhuziString::empty() const { return m_len == 0; }
 
     void zhuziString::reserve(size_t newCapacity) {
-        if (newCapacity > m_capacity) {
-            ensureCapacity(newCapacity);
-        }
+        if (newCapacity > m_capacity) ensureCapacity(newCapacity);
     }
 
     void zhuziString::resize(size_t newSize, wchar_t ch) {
@@ -196,6 +222,7 @@ namespace zhuzi {
         }
     }
 
+    // ---------- å…ƒç´ è®¿é—® ----------
     wchar_t zhuziString::operator[](size_t index) const {
         if (index >= m_len) return L'\0';
         return m_data[index];
@@ -209,6 +236,7 @@ namespace zhuzi {
     const wchar_t* zhuziString::c_str() const { return m_data ? m_data : L""; }
     const wchar_t* zhuziString::data() const { return c_str(); }
 
+    // ---------- ä¿®æ”¹ ----------
     void zhuziString::clear() {
         if (m_data) m_data[0] = L'\0';
         m_len = 0;
@@ -242,17 +270,63 @@ namespace zhuzi {
         return *this;
     }
 
+    // ---------- å­ä¸²å’ŒæŸ¥æ‰¾ ----------
+    zhuziString zhuziString::substr(size_t pos, size_t count) const {
+        if (pos >= m_len) return zhuziString();
+        size_t realCount = (count == npos || pos + count > m_len) ? (m_len - pos) : count;
+        std::wstring wstr(m_data + pos, realCount);
+        return zhuziString(wstr.c_str());
+    }
+
+    size_t zhuziString::find(const zhuziString& str, size_t pos) const {
+        if (pos > m_len) return npos;
+        if (str.m_len == 0) return pos;
+        const wchar_t* found = wcsstr(m_data + pos, str.m_data);
+        if (found) return found - m_data;
+        return npos;
+    }
+
+    size_t zhuziString::find(wchar_t ch, size_t pos) const {
+        if (pos >= m_len) return npos;
+        const wchar_t* found = wcschr(m_data + pos, ch);
+        if (found) return found - m_data;
+        return npos;
+    }
+
+    size_t zhuziString::find(const wchar_t* str, size_t pos) const {
+        if (pos > m_len) return npos;
+        if (!str || !*str) return pos;
+        const wchar_t* found = wcsstr(m_data + pos, str);
+        if (found) return found - m_data;
+        return npos;
+    }
+
+    // ---------- æ¯”è¾ƒ ----------
     bool zhuziString::operator==(const zhuziString& other) const {
         if (m_len != other.m_len) return false;
         return wcscmp(m_data, other.m_data) == 0;
     }
     bool zhuziString::operator!=(const zhuziString& other) const { return !(*this == other); }
 
+    bool zhuziString::operator<(const zhuziString& other) const {
+        return wcscmp(m_data, other.m_data) < 0;
+    }
+    bool zhuziString::operator>(const zhuziString& other) const {
+        return wcscmp(m_data, other.m_data) > 0;
+    }
+    bool zhuziString::operator<=(const zhuziString& other) const {
+        return wcscmp(m_data, other.m_data) <= 0;
+    }
+    bool zhuziString::operator>=(const zhuziString& other) const {
+        return wcscmp(m_data, other.m_data) >= 0;
+    }
+
+    // ---------- UTF-8 è¾“å‡º ----------
     const char* zhuziString::c_charptr() const {
         return wchar_to_utf8(m_data);
     }
 
-    // È«¾Ö operator+ ÊµÏÖ
+    // ---------- å…¨å±€ operator+ ----------
     zhuziString operator+(const zhuziString& lhs, const zhuziString& rhs) {
         zhuziString result = lhs;
         result += rhs;
@@ -279,17 +353,33 @@ namespace zhuzi {
         return result;
     }
 
-    bool zhuziString::operator<(const zhuziString& other) const {
-        return wcscmp(m_data, other.m_data) < 0;
+    // ---------- å®½æµè¾“å‡º ----------
+    std::wostream& operator<<(std::wostream& wos, const zhuziString& str) {
+        wos << str.c_str();
+        return wos;
     }
-    bool zhuziString::operator>(const zhuziString& other) const {
-        return wcscmp(m_data, other.m_data) > 0;
+
+    // ---------- å®½æµè¾“å…¥ ----------
+    std::wistream& operator>>(std::wistream& wis, zhuziString& str) {
+        std::wstring temp;
+        wis >> temp;
+        str = temp.c_str();   // ä½¿ç”¨ç°æœ‰çš„èµ‹å€¼è¿ç®—ç¬¦ (const wchar_t*)
+        return wis;
     }
-    bool zhuziString::operator<=(const zhuziString& other) const {
-        return wcscmp(m_data, other.m_data) <= 0;
-    }
-    bool zhuziString::operator>=(const zhuziString& other) const {
-        return wcscmp(m_data, other.m_data) >= 0;
+
+    // ---------- æ–°å¢ to_utf8 ----------
+    void zhuziString::to_utf8(char* buffer, size_t bufferSize) const {
+        if (!buffer || bufferSize == 0) {
+            return;
+        }
+        if (!m_data || m_len == 0) {
+            buffer[0] = '\0';
+            return;
+        }
+        int len = WideCharToMultiByte(CP_UTF8, 0, m_data, -1, buffer, static_cast<int>(bufferSize), nullptr, nullptr);
+        if (len == 0) {
+            buffer[0] = '\0'; // è½¬æ¢å¤±è´¥åˆ™ç½®ç©º
+        }
     }
 
 } // namespace zhuzi

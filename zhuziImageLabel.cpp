@@ -56,6 +56,22 @@ namespace zhuzi {
         return false;
     }
 
+    // 在 zhuziImageLabel 类中添加
+    void zhuziImageLabel::setImage(const zhuziImage& image) {
+        if (!image.isEmpty()) {
+            // 复制 HBITMAP
+            HBITMAP hCopy = image.toHBITMAP();
+            if (hCopy) {
+                m_image.loadFromHBITMAP(hCopy);
+                DeleteObject(hCopy);
+                updateImage();
+            }
+        }
+        else {
+            clearImage();
+        }
+    }
+
     void zhuziImageLabel::clearImage() {
         m_image = zhuziImage();  // 清空
         updateImage();

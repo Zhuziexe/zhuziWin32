@@ -19,26 +19,20 @@
     <Filter Include="源文件\通用控件">
       <UniqueIdentifier>{12c77785-5666-43e2-9454-86e6df6aa861}</UniqueIdentifier>
     </Filter>
+    <Filter Include="头文件\核心">
+      <UniqueIdentifier>{61da2fdc-c74b-4d0d-bddc-8bb2f8f7d1ba}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\工具">
+      <UniqueIdentifier>{223cafc9-8ca1-4b39-81bd-537b9cb73965}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\核心">
+      <UniqueIdentifier>{50bcd5b6-963b-431f-af38-cd15634d80e2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\工具">
+      <UniqueIdentifier>{cda46746-d7f4-4749-8933-c8f35fb08055}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="zhuziControl.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="zhuziFont.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="zhuziImageList.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="zhuziInstance.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="zhuziPaint.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="zhuziString.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="zhuziCommctrl.cpp">
       <Filter>源文件\通用控件</Filter>
     </ClCompile>
@@ -102,47 +96,53 @@
     <ClCompile Include="zhuziLayout.cpp">
       <Filter>源文件\通用控件</Filter>
     </ClCompile>
-    <ClCompile Include="zhuziDragDrop.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="zhuziCommDlg.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="CmEdit.cpp">
       <Filter>源文件\通用控件</Filter>
-    </ClCompile>
-    <ClCompile Include="zhuziD2D.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="zhuziImage.cpp">
-      <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="zhuziImageButton.cpp">
       <Filter>源文件\通用控件</Filter>
     </ClCompile>
+    <ClCompile Include="zhuziControl.cpp">
+      <Filter>源文件\核心</Filter>
+    </ClCompile>
+    <ClCompile Include="zhuziD2D.cpp">
+      <Filter>源文件\核心</Filter>
+    </ClCompile>
+    <ClCompile Include="zhuziFont.cpp">
+      <Filter>源文件\核心</Filter>
+    </ClCompile>
+    <ClCompile Include="zhuziImage.cpp">
+      <Filter>源文件\核心</Filter>
+    </ClCompile>
+    <ClCompile Include="zhuziImageList.cpp">
+      <Filter>源文件\核心</Filter>
+    </ClCompile>
+    <ClCompile Include="zhuziInstance.cpp">
+      <Filter>源文件\核心</Filter>
+    </ClCompile>
+    <ClCompile Include="zhuziPaint.cpp">
+      <Filter>源文件\核心</Filter>
+    </ClCompile>
+    <ClCompile Include="zhuziString.cpp">
+      <Filter>源文件\核心</Filter>
+    </ClCompile>
+    <ClCompile Include="zhuziDragDrop.cpp">
+      <Filter>源文件\工具</Filter>
+    </ClCompile>
+    <ClCompile Include="zhuziCommDlg.cpp">
+      <Filter>源文件\工具</Filter>
+    </ClCompile>
+    <ClCompile Include="zhuziTaskDialog.cpp">
+      <Filter>源文件\工具</Filter>
+    </ClCompile>
+    <ClCompile Include="zhuziSocket.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="zhuziForm.cpp">
+      <Filter>源文件\通用控件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="zhuziInstance.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="zhuziThread.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="zhuziControl.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="zhuziImageList.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="zhuziPaint.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="zhuziFont.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="zhuziString.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="zhuziCommctrl.h">
       <Filter>头文件\通用控件</Filter>
     </ClInclude>
@@ -185,23 +185,14 @@
     <ClInclude Include="zhuziToolTip.h">
       <Filter>头文件\通用控件</Filter>
     </ClInclude>
-    <ClInclude Include="zhuziRgn.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="zhuziTreeView.h">
       <Filter>头文件\通用控件</Filter>
-    </ClInclude>
-    <ClInclude Include="MyCustomControl.h">
-      <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="zhuziPanedWindow.h">
       <Filter>头文件\通用控件</Filter>
     </ClInclude>
     <ClInclude Include="zhuziScrollArea.h">
       <Filter>头文件\通用控件</Filter>
-    </ClInclude>
-    <ClInclude Include="zhuziMutex.h">
-      <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="zhuziRebar.h">
       <Filter>头文件\通用控件</Filter>
@@ -212,35 +203,74 @@
     <ClInclude Include="zhuziWin32.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="zhuziBinaryTree.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="zhuziComboBoxEx.h">
       <Filter>头文件\通用控件</Filter>
     </ClInclude>
     <ClInclude Include="zhuziLayout.h">
       <Filter>头文件\通用控件</Filter>
     </ClInclude>
-    <ClInclude Include="zhuziDragDrop.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="zhuziCommDlg.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="CmEdit.h">
       <Filter>头文件\通用控件</Filter>
-    </ClInclude>
-    <ClInclude Include="zhuziD2D.h">
-      <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="zhuziImageButton.h">
       <Filter>头文件\通用控件</Filter>
     </ClInclude>
+    <ClInclude Include="zhuziControl.h">
+      <Filter>头文件\核心</Filter>
+    </ClInclude>
+    <ClInclude Include="zhuziD2D.h">
+      <Filter>头文件\核心</Filter>
+    </ClInclude>
+    <ClInclude Include="zhuziFont.h">
+      <Filter>头文件\核心</Filter>
+    </ClInclude>
     <ClInclude Include="zhuziImage.h">
-      <Filter>头文件</Filter>
+      <Filter>头文件\核心</Filter>
+    </ClInclude>
+    <ClInclude Include="zhuziImageList.h">
+      <Filter>头文件\核心</Filter>
+    </ClInclude>
+    <ClInclude Include="zhuziInstance.h">
+      <Filter>头文件\核心</Filter>
+    </ClInclude>
+    <ClInclude Include="zhuziPaint.h">
+      <Filter>头文件\核心</Filter>
+    </ClInclude>
+    <ClInclude Include="zhuziRgn.h">
+      <Filter>头文件\核心</Filter>
+    </ClInclude>
+    <ClInclude Include="zhuziString.h">
+      <Filter>头文件\核心</Filter>
     </ClInclude>
     <ClInclude Include="zhuziType.h">
+      <Filter>头文件\核心</Filter>
+    </ClInclude>
+    <ClInclude Include="zhuziThread.h">
+      <Filter>头文件\工具</Filter>
+    </ClInclude>
+    <ClInclude Include="zhuziMutex.h">
+      <Filter>头文件\工具</Filter>
+    </ClInclude>
+    <ClInclude Include="zhuziDragDrop.h">
+      <Filter>头文件\工具</Filter>
+    </ClInclude>
+    <ClInclude Include="zhuziCommDlg.h">
+      <Filter>头文件\工具</Filter>
+    </ClInclude>
+    <ClInclude Include="zhuziBinaryTree.h">
+      <Filter>头文件\工具</Filter>
+    </ClInclude>
+    <ClInclude Include="zhuziTaskDialog.h">
+      <Filter>头文件\工具</Filter>
+    </ClInclude>
+    <ClInclude Include="zhuziSocket.h">
       <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="zhuziPair.h">
+      <Filter>头文件\工具</Filter>
+    </ClInclude>
+    <ClInclude Include="zhuziForm.h">
+      <Filter>头文件\通用控件</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

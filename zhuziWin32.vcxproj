@@ -110,6 +110,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -127,6 +128,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -146,6 +148,7 @@
     <ClCompile Include="zhuziDTP.cpp" />
     <ClCompile Include="zhuziEdit.cpp" />
     <ClCompile Include="zhuziFont.cpp" />
+    <ClCompile Include="zhuziForm.cpp" />
     <ClCompile Include="zhuziGroupBox.cpp" />
     <ClCompile Include="zhuziImage.cpp" />
     <ClCompile Include="zhuziImageButton.cpp" />
@@ -160,9 +163,11 @@
     <ClCompile Include="zhuziRebar.cpp" />
     <ClCompile Include="zhuziScrollArea.cpp" />
     <ClCompile Include="zhuziPanedWindow.cpp" />
+    <ClCompile Include="zhuziSocket.cpp" />
     <ClCompile Include="zhuziStatusBar.cpp" />
     <ClCompile Include="zhuziString.cpp" />
     <ClCompile Include="zhuziTab.cpp" />
+    <ClCompile Include="zhuziTaskDialog.cpp" />
     <ClCompile Include="zhuziToolBar.cpp" />
     <ClCompile Include="zhuziToolTip.cpp" />
     <ClCompile Include="zhuziTracker.cpp" />
@@ -171,13 +176,16 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CmEdit.h" />
-    <ClInclude Include="MyCustomControl.h" />
     <ClInclude Include="zhuziBinaryTree.h" />
     <ClInclude Include="zhuziComboBoxEx.h" />
     <ClInclude Include="zhuziCommctrl.h" />
     <ClInclude Include="zhuziCommDlg.h" />
     <ClInclude Include="zhuziControl.h" />
     <ClInclude Include="zhuziD2D.h" />
+    <ClInclude Include="zhuziForm.h" />
+    <ClInclude Include="zhuziPair.h" />
+    <ClInclude Include="zhuziSocket.h" />
+    <ClInclude Include="zhuziTaskDialog.h" />
     <ClInclude Include="zhuziType.h" />
     <ClInclude Include="zhuziDialog.h" />
     <ClInclude Include="zhuziDragDrop.h" />

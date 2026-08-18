@@ -1,4 +1,4 @@
-#include "zhuziTab.h"
+ï»¿#include "zhuziTab.h"
 #include "zhuziInstance.h"
 #include "zhuziControl.h"
 #include "zhuziCommctrl.h"
@@ -21,7 +21,7 @@ namespace zhuzi {
     }
 
     bool zhuziTab::onCreate(DWORD style) {
-        // ±£´æÔ­Ê¼ÑùÊ½
+        // ä¿å­˜åŽŸå§‹æ ·å¼
         m_originalStyle = style;
 
         INITCOMMONCONTROLSEX icex = {};
@@ -30,7 +30,7 @@ namespace zhuzi {
         InitCommonControlsEx(&icex);
         
         HWND hParent = m_parent ? m_parent->getHandle() : nullptr;
-        // ´´½¨Ê±Ê¹ÓÃÁÙÊ±Î»ÖÃ(0,0,0,0)£¬»ùÀàºóÐø»áÍ¨¹ýapplyLayoutµ÷ÕûÎ»ÖÃºÍ´óÐ¡
+        // åˆ›å»ºæ—¶ä½¿ç”¨ä¸´æ—¶ä½ç½®(0,0,0,0)ï¼ŒåŸºç±»åŽç»­ä¼šé€šè¿‡applyLayoutè°ƒæ•´ä½ç½®å’Œå¤§å°
         m_hwnd = CreateWindowExW(0, WC_TABCONTROLW, L"",
             style | WS_CHILD | WS_VISIBLE,
             0, 0, 0, 0, hParent,
@@ -49,7 +49,7 @@ namespace zhuzi {
 
         registerParentNotify();
 
-        // Á¢¼´Ó¦ÓÃ²¼¾Ö£¨ÒòÎª¸¸´°¿Ú¿ÉÄÜÒÑ¾­¾ßÓÐ´óÐ¡£©
+        // ç«‹å³åº”ç”¨å¸ƒå±€ï¼ˆå› ä¸ºçˆ¶çª—å£å¯èƒ½å·²ç»å…·æœ‰å¤§å°ï¼‰
         if (m_parent) {
             RECT parentRect;
             GetClientRect(m_parent->getHandle(), &parentRect);
@@ -149,7 +149,7 @@ namespace zhuzi {
         if (!m_hwnd) return;
         HWND hParent = GetParent(m_hwnd);
         if (!hParent) return;
-        zhuziControl* pParent = GetControlFromHWND(hParent); // Ê¹ÓÃ¸¨Öúº¯Êý
+        zhuziControl* pParent = GetControlFromHWND(hParent); // ä½¿ç”¨è¾…åŠ©å‡½æ•°
         if (!pParent) return;
         Bind(pParent, WM_NOTIFY, [this](zhuziMsg* msg) {
             NMHDR* pnmh = reinterpret_cast<NMHDR*>(msg->lParam);
@@ -165,13 +165,13 @@ namespace zhuzi {
     bool zhuziTab::handleNotifyFromParent(NMHDR* pnmh) {
         if (pnmh->code == TCN_SELCHANGE) {
             int newSel = getCurSel();
-            if (newSel == m_curSel) return true; // Î´±ä»¯£¬ºöÂÔ
+            if (newSel == m_curSel) return true; // æœªå˜åŒ–ï¼Œå¿½ç•¥
             int oldSel = m_curSel;
             m_curSel = newSel;
             updatePagesVisibility();
             updateCurrentPageLayout();
             if (m_onSelChange) m_onSelChange(oldSel, newSel);
-            // Ç¿ÖÆË¢ÐÂ¸¸´°¿Ú£¬±ÜÃâÏÔÊ¾ÖÍºó
+            // å¼ºåˆ¶åˆ·æ–°çˆ¶çª—å£ï¼Œé¿å…æ˜¾ç¤ºæ»žåŽ
             if (m_hwnd) InvalidateRect(m_hwnd, nullptr, TRUE);
             return true;
         }
@@ -386,7 +386,7 @@ namespace zhuzi {
 
     void zhuziTab::setImageList(zhuziImageList* iml) {
         if (m_hwnd) {
-            // ¼ÙÉè zhuziImageList Ìá¹©ÁË getHandle() ·½·¨·µ»Ø HIMAGELIST
+            // å‡è®¾ zhuziImageList æä¾›äº† getHandle() æ–¹æ³•è¿”å›ž HIMAGELIST
             TabCtrl_SetImageList(m_hwnd, iml->getHandle());
         }
     }

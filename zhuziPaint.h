@@ -13,40 +13,38 @@ namespace zhuzi {
     class zhuziColor {
     public:
         // ����
-        zhuziColor() : m_color(RGB(0, 0, 0)), m_alpha(0) {}
+        zhuziColor() : m_r(0),m_g(0),m_b(0), m_alpha(0) {}
         zhuziColor(BYTE r, BYTE g, BYTE b, BYTE a = 255)
-            : m_color(RGB(r, g, b)), m_alpha(a) {
+            : m_r(r), m_g(g), m_b(b), m_alpha(a) {
         }
         zhuziColor(COLORREF cr, BYTE a = 255)
-            : m_color(cr), m_alpha(a) {
+            : m_r(GetRValue(cr)), m_g(GetGValue(cr)), m_b(GetBValue(cr)), m_alpha(a) {
         }
         zhuziColor(const Gdiplus::Color& color)
-            : m_color(RGB(color.GetR(), color.GetG(), color.GetB())),
+            : m_r(color.GetR()),m_g(color.GetB()),m_b(color.GetB()),
             m_alpha(color.GetA()) {
         }
 
-        // ת��Ϊ Gdiplus::Color�����ڻ�ͼ��
         Gdiplus::Color toGdiplusColor() const {
             return Gdiplus::Color(m_alpha, GetR(), GetG(), GetB());
         }
         operator Gdiplus::Color() const { return toGdiplusColor(); }
 
-        // ת��Ϊ COLORREF
-        COLORREF toCOLORREF() const { return m_color; }
-        operator COLORREF() const { return m_color; }
+        COLORREF toCOLORREF() const { return RGB(m_r,m_g,m_b); }
+        operator COLORREF() const { return RGB(m_r,m_g,m_b); }
 
-        // ��ȡ RGBA ����
-        BYTE GetR() const { return GetRValue(m_color); }
-        BYTE GetG() const { return GetGValue(m_color); }
-        BYTE GetB() const { return GetBValue(m_color); }
+        BYTE GetR() const { return m_r; }
+        BYTE GetG() const { return m_g; }
+        BYTE GetB() const { return m_b; }
         BYTE GetA() const { return m_alpha; }
 
-        // ���� alpha��͸���ȣ�
         void setAlpha(BYTE a) { m_alpha = a; }
 
     private:
-        COLORREF m_color;
-        BYTE m_alpha; // ͸���� 0-255
+        BYTE m_r;
+        BYTE m_g;
+        BYTE m_b;
+        BYTE m_alpha;
     };
 
     class zhuziPen {
@@ -216,6 +214,20 @@ namespace zhuzi {
             path.CloseFigure();
             if (brush) m_graphics.FillPath(brush->get(), &path);
             m_graphics.DrawPath(pen.get(), &path);
+        }
+
+        void fillRoundRect(int x, int y, int width, int height, int radius, const zhuziBrush& brush) {
+            if (radius <= 0) {
+                fillRect(x, y, width, height, brush);
+                return;
+            }
+            Gdiplus::GraphicsPath path;
+            path.AddArc(x, y, radius * 2, radius * 2, 180, 90);
+            path.AddArc(x + width - radius * 2, y, radius * 2, radius * 2, 270, 90);
+            path.AddArc(x + width - radius * 2, y + height - radius * 2, radius * 2, radius * 2, 0, 90);
+            path.AddArc(x, y + height - radius * 2, radius * 2, radius * 2, 90, 90);
+            path.CloseFigure();
+            m_graphics.FillPath(brush.get(), &path);
         }
 
         int getWidth() const { return m_clientRect.right - m_clientRect.left; }
