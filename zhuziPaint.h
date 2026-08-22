@@ -1,4 +1,5 @@
 ﻿#pragma once
+
 #include <windows.h>
 #include <gdiplus.h>
 #include "zhuziString.h"
@@ -10,233 +11,151 @@
 
 namespace zhuzi {
 
+    // ---------- 颜色 ----------
     class zhuziColor {
     public:
-        // ����
-        zhuziColor() : m_r(0),m_g(0),m_b(0), m_alpha(0) {}
-        zhuziColor(BYTE r, BYTE g, BYTE b, BYTE a = 255)
-            : m_r(r), m_g(g), m_b(b), m_alpha(a) {
-        }
-        zhuziColor(COLORREF cr, BYTE a = 255)
-            : m_r(GetRValue(cr)), m_g(GetGValue(cr)), m_b(GetBValue(cr)), m_alpha(a) {
-        }
-        zhuziColor(const Gdiplus::Color& color)
-            : m_r(color.GetR()),m_g(color.GetB()),m_b(color.GetB()),
-            m_alpha(color.GetA()) {
-        }
+        zhuziColor();
+        zhuziColor(BYTE r, BYTE g, BYTE b, BYTE a = 255);
+        zhuziColor(COLORREF cr, BYTE a = 255);
+        zhuziColor(const Gdiplus::Color& color);
 
-        Gdiplus::Color toGdiplusColor() const {
-            return Gdiplus::Color(m_alpha, getR(), getG(), getB());
-        }
-        operator Gdiplus::Color() const { return toGdiplusColor(); }
+        Gdiplus::Color toGdiplusColor() const;
+        operator Gdiplus::Color() const;
+        COLORREF toCOLORREF() const;
+        operator COLORREF() const;
 
-        COLORREF toCOLORREF() const { return RGB(m_r,m_g,m_b); }
-        operator COLORREF() const { return RGB(m_r,m_g,m_b); }
-
-        BYTE getR() const { return m_r; }
-        BYTE getG() const { return m_g; }
-        BYTE getB() const { return m_b; }
-        BYTE getA() const { return m_alpha; }
-
-        void setAlpha(BYTE a) { m_alpha = a; }
+        BYTE getR() const;
+        BYTE getG() const;
+        BYTE getB() const;
+        BYTE getA() const;
+        void setAlpha(BYTE a);
 
     private:
-        BYTE m_r;
-        BYTE m_g;
-        BYTE m_b;
-        BYTE m_alpha;
+        BYTE m_r, m_g, m_b, m_alpha;
     };
 
+    // ---------- 画笔 ----------
     class zhuziPen {
     public:
-        zhuziPen(const zhuziColor& color, float width = 1.0f, Gdiplus::DashStyle style = Gdiplus::DashStyleSolid)
-            : m_pen(new Gdiplus::Pen(color, width)) {
-            m_pen->SetDashStyle(style);
-        }
-        ~zhuziPen() { delete m_pen; }
-        Gdiplus::Pen* get() const { return m_pen; }
+        zhuziPen(const zhuziColor& color, float width = 1.0f, Gdiplus::DashStyle style = Gdiplus::DashStyleSolid);
+        ~zhuziPen();
+
+        zhuziPen(const zhuziPen&) = delete;
+        zhuziPen& operator=(const zhuziPen&) = delete;
+        zhuziPen(zhuziPen&& other) noexcept;
+        zhuziPen& operator=(zhuziPen&& other) noexcept;
+
+        Gdiplus::Pen* get() const;
+
     private:
         Gdiplus::Pen* m_pen;
     };
 
+    // ---------- 画刷 ----------
     class zhuziBrush {
     public:
-        // ��ɫ��ˢ
-        zhuziBrush(const zhuziColor& color) : m_brush(new Gdiplus::SolidBrush(color)) {}
-
-        // �� HBRUSH ���죨��֧�� BS_SOLID��
-        zhuziBrush(HBRUSH hBrush) {
-            LOGBRUSH lb;
-            if (GetObject(hBrush, sizeof(LOGBRUSH), &lb) && lb.lbStyle == BS_SOLID) {
-                COLORREF color = lb.lbColor;
-                m_brush = new Gdiplus::SolidBrush(Gdiplus::Color(GetRValue(color), GetGValue(color), GetBValue(color)));
-            }
-            else {
-                m_brush = new Gdiplus::SolidBrush(Gdiplus::Color(0, 0, 0));
-            }
-        }
-
-        // ���Խ��仭ˢ���������ɫ��
+        zhuziBrush(const zhuziColor& color);
+        zhuziBrush(HBRUSH hBrush);
         zhuziBrush(const zhuziColor& color1, const zhuziColor& color2,
-            const Gdiplus::PointF& point1, const Gdiplus::PointF& point2)
-            : m_brush(new Gdiplus::LinearGradientBrush(point1, point2, color1, color2)) {
-        }
-
-        // ���Խ��仭ˢ�����η�Χ�ͽǶȣ�
+            const POINT& point1, const POINT& point2);
         zhuziBrush(const zhuziColor& color1, const zhuziColor& color2,
-            const Gdiplus::RectF& rect, float angle, bool isAngleScalable = false)
-            : m_brush(new Gdiplus::LinearGradientBrush(rect, color1, color2, angle, isAngleScalable)) {
-        }
+            const RECT& rect, float angle, bool isAngleScalable = false);
+        ~zhuziBrush();
 
-        ~zhuziBrush() { delete m_brush; }
-        Gdiplus::Brush* get() const { return m_brush; }
-
-        // ��ֹ�����������ƶ�
         zhuziBrush(const zhuziBrush&) = delete;
         zhuziBrush& operator=(const zhuziBrush&) = delete;
-        zhuziBrush(zhuziBrush&& other) noexcept : m_brush(other.m_brush) { other.m_brush = nullptr; }
-        zhuziBrush& operator=(zhuziBrush&& other) noexcept {
-            if (this != &other) {
-                delete m_brush;
-                m_brush = other.m_brush;
-                other.m_brush = nullptr;
-            }
-            return *this;
-        }
+        zhuziBrush(zhuziBrush&& other) noexcept;
+        zhuziBrush& operator=(zhuziBrush&& other) noexcept;
+
+        Gdiplus::Brush* get() const;
 
     private:
         Gdiplus::Brush* m_brush;
     };
 
+    // ---------- 路径封装 ----------
+    class zhuziPath {
+    public:
+        zhuziPath();
+        ~zhuziPath();
+
+        zhuziPath(zhuziPath&& other) noexcept;
+        zhuziPath& operator=(zhuziPath&& other) noexcept;
+
+        zhuziPath(const zhuziPath&) = delete;
+        zhuziPath& operator=(const zhuziPath&) = delete;
+
+        // 添加基本图形（参数使用 GDI32 原生类型）
+        void addLine(const POINT& p1, const POINT& p2);
+        void addRectangle(const RECT& rect);
+        void addEllipse(const RECT& rect);
+        void addArc(const RECT& rect, float startAngle, float sweepAngle);
+        void addBezier(const POINT& p1, const POINT& p2, const POINT& p3, const POINT& p4);
+        void addPolygon(const POINT* points, int count);
+        void addCurve(const POINT* points, int count);
+
+        // 添加文字（使用点或矩形定位）
+        void addString(const zhuziString& text, const zhuziFont& font, const POINT& origin);
+        void addString(const zhuziString& text, const zhuziFont& font, const RECT& layoutRect);
+
+        void closeFigure();
+        void reset();
+
+        // 仅供内部使用
+        Gdiplus::GraphicsPath* getNative() const;
+
+    private:
+        Gdiplus::GraphicsPath* m_path;
+    };
+
+    // ---------- 设备上下文辅助 ----------
     class zhuziDC {
     public:
-        zhuziDC(HWND hwnd) : m_hwnd(hwnd), m_hdc(GetDC(hwnd)), m_graphics(m_hdc) {
-            m_graphics.SetSmoothingMode(Gdiplus::SmoothingMode::SmoothingModeDefault);
-        }
-        ~zhuziDC() { if (m_hdc) ReleaseDC(m_hwnd, m_hdc); }
-        Gdiplus::Graphics& getGraphics() { return m_graphics; }
-        HDC getHDC() const { return m_hdc; }
-        HWND getHwnd() const { return m_hwnd; }
+        zhuziDC(HWND hwnd);
+        ~zhuziDC();
+
+        Gdiplus::Graphics& getGraphics();
+        HDC getHDC() const;
+        HWND getHwnd() const;
+
     private:
         HWND m_hwnd;
-        HDC m_hdc;
+        HDC  m_hdc;
         Gdiplus::Graphics m_graphics;
     };
 
+    // ---------- 绘图主类 ----------
     class zhuziPaint {
     public:
-        zhuziPaint(HDC hdc, const RECT& clientRect)
-            : m_graphics(hdc), m_clientRect(clientRect) {
-            m_graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
-            m_graphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
-            m_graphics.SetTextRenderingHint(Gdiplus::TextRenderingHint::TextRenderingHintAntiAlias);
-        }
+        zhuziPaint(HDC hdc, const RECT& clientRect);
+        ~zhuziPaint() = default;
 
-        void clear(const zhuziColor& color) {
-            zhuziBrush brush(color);
-            m_graphics.FillRectangle(brush.get(), 0, 0, getWidth(), getHeight());
-        }
+        void clear(const zhuziColor& color);
 
-        void drawLine(int x1, int y1, int x2, int y2, const zhuziPen& pen) {
-            m_graphics.DrawLine(pen.get(), x1, y1, x2, y2);
-        }
+        void drawLine(int x1, int y1, int x2, int y2, const zhuziPen& pen);
+        void drawRect(int x, int y, int width, int height, const zhuziPen& pen, const zhuziBrush* brush = nullptr);
+        void fillRect(int x, int y, int width, int height, const zhuziBrush& brush);
+        void drawCircle(int cx, int cy, int radius, const zhuziPen& pen, const zhuziBrush* brush = nullptr);
+        void drawRoundRect(int x, int y, int width, int height, int radius, const zhuziPen& pen, const zhuziBrush* brush = nullptr);
+        void fillRoundRect(int x, int y, int width, int height, int radius, const zhuziBrush& brush);
 
-        void drawRect(int x, int y, int width, int height, const zhuziPen& pen, const zhuziBrush* brush = nullptr) {
-            if (brush) m_graphics.FillRectangle(brush->get(), x, y, width, height);
-            m_graphics.DrawRectangle(pen.get(), x, y, width, height);
-        }
-
-        void drawCircle(int cx, int cy, int radius, const zhuziPen& pen, const zhuziBrush* brush = nullptr) {
-            if (brush) m_graphics.FillEllipse(brush->get(), cx - radius, cy - radius, radius * 2, radius * 2);
-            m_graphics.DrawEllipse(pen.get(), cx - radius, cy - radius, radius * 2, radius * 2);
-        }
-
-        void drawText(const zhuziString& text, int x, int y, const zhuziBrush& brush, const zhuziFont& font) {
-            Gdiplus::Font gdiFont(font.getFontFamily(), (Gdiplus::REAL)font.getSize(), font.getStyle());
-            Gdiplus::PointF point((float)x, (float)y);
-            m_graphics.DrawString(text.c_str(), (int)text.length(), &gdiFont, point, brush.get());
-        }
-
+        // 文字绘制
+        void drawText(const zhuziString& text, int x, int y, const zhuziBrush& brush, const zhuziFont& font);
         void drawText(const zhuziString& text, const zhuziFont& font, const zhuziBrush& brush,
-            const RECT& rect, DWORD format = DT_CENTER | DT_VCENTER | DT_SINGLELINE) {
-            float fontSize = (float)font.getSize();
-            if (fontSize <= 0) fontSize = 16.0f;
-            Gdiplus::Font gdiFont(font.getFontFamily(), fontSize, font.getStyle(), Gdiplus::UnitPixel);
-            Gdiplus::StringFormat stringFormat;
+            const RECT& rect, DWORD format = DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        void measureText(const zhuziString& text, const zhuziFont& font, SIZE& size) const;
 
-            if (format & DT_CENTER)
-                stringFormat.SetAlignment(Gdiplus::StringAlignmentCenter);
-            else if (format & DT_RIGHT)
-                stringFormat.SetAlignment(Gdiplus::StringAlignmentFar);
-            else
-                stringFormat.SetAlignment(Gdiplus::StringAlignmentNear);
+        // 路径绘制
+        void drawPath(const zhuziPath& path, const zhuziPen& pen, const zhuziBrush* brush = nullptr);
+        void fillPath(const zhuziPath& path, const zhuziBrush& brush);
 
-            if (format & DT_VCENTER)
-                stringFormat.SetLineAlignment(Gdiplus::StringAlignmentCenter);
-            else if (format & DT_BOTTOM)
-                stringFormat.SetLineAlignment(Gdiplus::StringAlignmentFar);
-            else
-                stringFormat.SetLineAlignment(Gdiplus::StringAlignmentNear);
+        int getWidth() const;
+        int getHeight() const;
 
-            if (format & DT_SINGLELINE)
-                stringFormat.SetFormatFlags(stringFormat.GetFormatFlags() | \
-                    Gdiplus::StringFormatFlagsNoWrap);
+        Gdiplus::Graphics& getGraphics();
+        HDC getHDC();
+        void releaseHDC(HDC hdc);
 
-            Gdiplus::RectF layoutRect((Gdiplus::REAL)rect.left, (Gdiplus::REAL)rect.top,
-                (Gdiplus::REAL)(rect.right - rect.left), (Gdiplus::REAL)(rect.bottom - rect.top));
-            m_graphics.DrawString(text.c_str(), (int)text.length(), \
-                & gdiFont, layoutRect, &stringFormat, brush.get());
-        }
-
-        void measureText(const zhuziString& text, const zhuziFont& font, SIZE& size) const {
-            Gdiplus::Font gdiFont(font.getFontFamily(), (Gdiplus::REAL)font.getSize(), font.getStyle(), Gdiplus::UnitPixel);
-            Gdiplus::RectF bounds;
-            m_graphics.MeasureString(text.c_str(), \
-                (int)text.length(), &gdiFont, Gdiplus::PointF(0, 0), &bounds);
-            size.cx = (int)ceil(bounds.Width);
-            size.cy = (int)ceil(bounds.Height);
-        }
-
-        void fillRect(int x, int y, int width, int height, const zhuziBrush& brush) {
-            m_graphics.FillRectangle(brush.get(), x, y, width, height);
-        }
-
-        void drawRoundRect(int x, int y, int width, int height, int radius, const zhuziPen& pen, const zhuziBrush* brush = nullptr) {
-            if (radius <= 0) {
-                drawRect(x, y, width, height, pen, brush);
-                return;
-            }
-            Gdiplus::GraphicsPath path;
-            path.AddArc(x, y, radius * 2, radius * 2, 180, 90);
-            path.AddArc(x + width - radius * 2, y, radius * 2, radius * 2, 270, 90);
-            path.AddArc(x + width - radius * 2, y + height - radius * 2, radius * 2, radius * 2, 0, 90);
-            path.AddArc(x, y + height - radius * 2, radius * 2, radius * 2, 90, 90);
-            path.CloseFigure();
-            if (brush) m_graphics.FillPath(brush->get(), &path);
-            m_graphics.DrawPath(pen.get(), &path);
-        }
-
-        void fillRoundRect(int x, int y, int width, int height, int radius, const zhuziBrush& brush) {
-            if (radius <= 0) {
-                fillRect(x, y, width, height, brush);
-                return;
-            }
-            Gdiplus::GraphicsPath path;
-            path.AddArc(x, y, radius * 2, radius * 2, 180, 90);
-            path.AddArc(x + width - radius * 2, y, radius * 2, radius * 2, 270, 90);
-            path.AddArc(x + width - radius * 2, y + height - radius * 2, radius * 2, radius * 2, 0, 90);
-            path.AddArc(x, y + height - radius * 2, radius * 2, radius * 2, 90, 90);
-            path.CloseFigure();
-            m_graphics.FillPath(brush.get(), &path);
-        }
-
-        int getWidth() const { return m_clientRect.right - m_clientRect.left; }
-        int getHeight() const { return m_clientRect.bottom - m_clientRect.top; }
-
-        Gdiplus::Graphics& getGraphics() { return m_graphics; }
-
-        HDC getHDC() { return m_graphics.GetHDC(); }
-        void releaseHDC(HDC hdc) { m_graphics.ReleaseHDC(hdc); }
     private:
         Gdiplus::Graphics m_graphics;
         RECT m_clientRect;

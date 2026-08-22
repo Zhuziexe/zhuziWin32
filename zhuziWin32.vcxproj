@@ -142,7 +142,6 @@
     <ClCompile Include="zhuziCommctrl.cpp" />
     <ClCompile Include="zhuziCommDlg.cpp" />
     <ClCompile Include="zhuziControl.cpp" />
-    <ClCompile Include="zhuziD2D.cpp" />
     <ClCompile Include="zhuziDialog.cpp" />
     <ClCompile Include="zhuziDragDrop.cpp" />
     <ClCompile Include="zhuziDTP.cpp" />
@@ -180,7 +179,6 @@
     <ClInclude Include="zhuziCommctrl.h" />
     <ClInclude Include="zhuziCommDlg.h" />
     <ClInclude Include="zhuziControl.h" />
-    <ClInclude Include="zhuziD2D.h" />
     <ClInclude Include="zhuziForm.h" />
     <ClInclude Include="zhuziPair.h" />
     <ClInclude Include="zhuziSocket.h" />

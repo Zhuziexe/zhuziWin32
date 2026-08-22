@@ -102,9 +102,6 @@
     <ClCompile Include="zhuziControl.cpp">
       <Filter>源文件\核心</Filter>
     </ClCompile>
-    <ClCompile Include="zhuziD2D.cpp">
-      <Filter>源文件\核心</Filter>
-    </ClCompile>
     <ClCompile Include="zhuziFont.cpp">
       <Filter>源文件\核心</Filter>
     </ClCompile>
@@ -210,9 +207,6 @@
       <Filter>头文件\通用控件</Filter>
     </ClInclude>
     <ClInclude Include="zhuziControl.h">
-      <Filter>头文件\核心</Filter>
-    </ClInclude>
-    <ClInclude Include="zhuziD2D.h">
       <Filter>头文件\核心</Filter>
     </ClInclude>
     <ClInclude Include="zhuziFont.h">
