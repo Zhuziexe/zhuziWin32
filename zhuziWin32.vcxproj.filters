@@ -93,9 +93,6 @@
     <ClCompile Include="zhuziComboBoxEx.cpp">
       <Filter>源文件\通用控件</Filter>
     </ClCompile>
-    <ClCompile Include="zhuziLayout.cpp">
-      <Filter>源文件\通用控件</Filter>
-    </ClCompile>
     <ClCompile Include="CmEdit.cpp">
       <Filter>源文件\通用控件</Filter>
     </ClCompile>
@@ -204,9 +201,6 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="zhuziComboBoxEx.h">
-      <Filter>头文件\通用控件</Filter>
-    </ClInclude>
-    <ClInclude Include="zhuziLayout.h">
       <Filter>头文件\通用控件</Filter>
     </ClInclude>
     <ClInclude Include="CmEdit.h">

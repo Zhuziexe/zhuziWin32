@@ -659,18 +659,18 @@ namespace zhuzi {
             return zmsg.result;
         }
 
-        // 原有的特殊消息处理
-        if (msg == WM_ERASEBKGND) {
-            if (m_hBgBrush) {
-                HDC hdc = (HDC)wParam;
-                RECT rc;
-                GetClientRect(m_hwnd, &rc);
-                FillRect(hdc, &rc, m_hBgBrush);
-                return 1;
-            }
-            return -1;
+        switch (msg) {
+        case WM_PAINT: {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(m_hwnd, &ps);
+            // 执行绘图操作，例如填充矩形
+            FillRect(hdc, &ps.rcPaint, m_hBgBrush);
+            EndPaint(m_hwnd, &ps);
+            return 0;
         }
-        if (msg == WM_GETMINMAXINFO) {
+        case WM_ERASEBKGND:
+            return 1;
+        case WM_GETMINMAXINFO: {
             MINMAXINFO* pMMI = (MINMAXINFO*)lParam;
             if (m_minWidth > 0) pMMI->ptMinTrackSize.x = m_minWidth;
             if (m_minHeight > 0) pMMI->ptMinTrackSize.y = m_minHeight;
@@ -678,16 +678,16 @@ namespace zhuzi {
             if (m_maxHeight > 0) pMMI->ptMaxTrackSize.y = m_maxHeight;
             return 0;
         }
-        if (msg == WM_SIZE) {
+        case WM_SIZE:
             onParentResize(LOWORD(lParam), HIWORD(lParam));
             return 0;
-        }
-        if (msg == WM_NCDESTROY) {
+        case WM_NCDESTROY:
             zhuziInstance::unregisterTopLevelWindow(m_hwnd);
             m_hwnd = nullptr;
             return 0;
+        default:
+            return -1;
         }
-        return -1;
     }
 
     zhuziWindow* findParentWindow(zhuziControl* ctrl) {

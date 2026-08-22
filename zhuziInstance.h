@@ -1,14 +1,15 @@
 #pragma once
 #include <windows.h>
 #include <functional>
+#include "zhuziString.h"
 
 namespace zhuzi {
 
     class zhuziWindow;
-
     class zhuziInstance {
     public:
-        zhuziInstance(HINSTANCE hInstance);
+        zhuziInstance(HINSTANCE hInstance,
+            DPI_AWARENESS_CONTEXT dpicontext = DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED);
         ~zhuziInstance();
 
         // 运行消息循环，返回退出码（由 quit 设置，或最后一个窗口关闭时自动设为 0）
@@ -39,4 +40,13 @@ namespace zhuzi {
         void shutdownGdiplus();
     };
 
+    /**
+     * @brief 从RCDATA加载字符串资源
+     * @param resourceId 资源ID 
+     * @param codePage 资源编码(如CP_UTF8)
+     * @return 获取的资源内容  
+     * @return 失败时返回空字符串
+    */
+    zhuziString LoadTextFromRCDATA(int resourceId, UINT codePage = CP_UTF8);
+    
 } // namespace zhuzi

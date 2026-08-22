@@ -14,27 +14,13 @@ namespace zhuzi {
     zhuziInstance* zhuziInstance::s_pInstance = nullptr;
     int zhuziInstance::s_topLevelWindowCount = 0;
 
-    zhuziInstance::zhuziInstance(HINSTANCE hInstance)
+    zhuziInstance::zhuziInstance(HINSTANCE hInstance,DPI_AWARENESS_CONTEXT dpicontext)
         : m_hInstance(hInstance), m_quitting(false), m_exitCode(0), m_running(false), m_gdiplusToken(0) {
         s_pInstance = this;
         initCommonControls();
         initGdiplus();
         OleInitialize(nullptr);
-        HMODULE hShcore = LoadLibraryW(L"shcore.dll");
-        if (hShcore) {
-            // 使用 typedef 定义函数指针类型
-            typedef HRESULT(WINAPI* SetProcessDpiAwarenessFn)(PROCESS_DPI_AWARENESS);
-            SetProcessDpiAwarenessFn pfn = (SetProcessDpiAwarenessFn)GetProcAddress(hShcore, "SetProcessDpiAwareness");
-            if (pfn) {
-                pfn(PROCESS_DPI_UNAWARE);  // 关键：系统级 DPI 感知
-            }
-            FreeLibrary(hShcore);
-        }
-        else {
-            // 回退到旧 API（支持 Windows 7）
-            SetProcessDPIAware();
-        }
-
+        SetProcessDpiAwarenessContext(dpicontext);
     }
 
     zhuziInstance::~zhuziInstance() {
@@ -107,6 +93,62 @@ namespace zhuzi {
             Gdiplus::GdiplusShutdown(m_gdiplusToken);
             m_gdiplusToken = 0;
         }
+    }
+
+    zhuziString LoadTextFromRCDATA(int resourceId, UINT codePage) {
+        HINSTANCE hInst = zhuziInstance::getHandle();
+        if (!hInst) return zhuziString();
+
+        HRSRC hRes = FindResourceW(hInst, MAKEINTRESOURCEW(resourceId), RT_RCDATA);
+        
+        if (!hRes) return zhuziString();
+        
+
+        HGLOBAL hData = LoadResource(hInst, hRes);
+        if (!hData) return zhuziString();
+
+        DWORD size = SizeofResource(hInst, hRes);
+        if (size == 0) return zhuziString();
+
+        const BYTE* pData = (const BYTE*)LockResource(hData);
+        if (!pData) return zhuziString();
+
+        // 处理 UTF-8 BOM（EF BB BF）
+        const BYTE* pStart = pData;
+        DWORD dataSize = size;
+        if (dataSize >= 3 && pData[0] == 0xEF && pData[1] == 0xBB && pData[2] == 0xBF) {
+            pStart = pData + 3;
+            dataSize = size - 3;
+        }
+
+        // 尝试用指定编码转换
+        int wideLen = MultiByteToWideChar(codePage, 0, (const char*)pStart, dataSize, nullptr, 0);
+        if (wideLen == 0) {
+            // 回退到系统默认编码
+            wideLen = MultiByteToWideChar(CP_ACP, 0, (const char*)pStart, dataSize, nullptr, 0);
+            if (wideLen == 0) {
+                return zhuziString(); // 完全失败
+            }
+            wchar_t* wbuf = new wchar_t[wideLen + 1];
+            if (!wbuf) return zhuziString();
+            MultiByteToWideChar(CP_ACP, 0, (const char*)pStart, dataSize, wbuf, wideLen);
+            wbuf[wideLen] = L'\0';
+            zhuziString result(wbuf);
+            delete[] wbuf;
+            return result;
+        }
+
+        wchar_t* wbuf = new wchar_t[wideLen + 1];
+        if (!wbuf) return zhuziString();
+        int converted = MultiByteToWideChar(codePage, 0, (const char*)pStart, dataSize, wbuf, wideLen);
+        if (converted == 0) {
+            delete[] wbuf;
+            return zhuziString();
+        }
+        wbuf[wideLen] = L'\0';
+        zhuziString result(wbuf);
+        delete[] wbuf;
+        return result;
     }
 
 } // namespace zhuzi

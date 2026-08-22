@@ -204,10 +204,6 @@ namespace zhuzi {
             RemoveWindowSubclass(hwnd, StaticProc, uIdSubclass);
             return DefSubclassProc(hwnd, msg, wParam, lParam);
         }
-        if (msg == WM_PAINT) {
-            // 让基类处理 WM_PAINT，会调用 onPaint
-            return DefSubclassProc(hwnd, msg, wParam, lParam);
-        }
         return DefSubclassProc(hwnd, msg, wParam, lParam);
     }
 

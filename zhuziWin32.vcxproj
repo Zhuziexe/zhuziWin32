@@ -155,7 +155,6 @@
     <ClCompile Include="zhuziImageLabel.cpp" />
     <ClCompile Include="zhuziImageList.cpp" />
     <ClCompile Include="zhuziInstance.cpp" />
-    <ClCompile Include="zhuziLayout.cpp" />
     <ClCompile Include="zhuziListView.cpp" />
     <ClCompile Include="zhuziMenu.cpp" />
     <ClCompile Include="zhuziPaint.cpp" />
@@ -198,7 +197,6 @@
     <ClInclude Include="zhuziImageLabel.h" />
     <ClInclude Include="zhuziImageList.h" />
     <ClInclude Include="zhuziInstance.h" />
-    <ClInclude Include="zhuziLayout.h" />
     <ClInclude Include="zhuziListView.h" />
     <ClInclude Include="zhuziMenu.h" />
     <ClInclude Include="zhuziMutex.h" />
